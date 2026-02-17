@@ -37,7 +37,7 @@ param deployAppInsights bool
 
 @description('Hosting mode for MCP servers: none (notebooks only), appService, or aca')
 @allowed(['none', 'appService', 'aca'])
-param hostingMode string = 'none'
+param hostingMode string = 'aca'
 
 @description('App Service Plan SKU (used only when hostingMode == appService)')
 param appServiceSkuName string = 'B1'

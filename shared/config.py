@@ -53,7 +53,7 @@ class McpConfig:
     transport: str = "stdio"
     crm_url: str = ""
     kb_url: str = ""
-    hosting_mode: str = "none"
+    hosting_mode: str = "aca"
 
 
 @dataclass(frozen=True)
@@ -172,7 +172,7 @@ def load_config(env_file: str | Path | None = None) -> AppConfig:
         transport=_get_env("MCP_TRANSPORT", "stdio"),
         crm_url=_get_env("MCP_CRM_URL", ""),
         kb_url=_get_env("MCP_KB_URL", ""),
-        hosting_mode=_get_env("HOSTING_MODE", "none"),
+        hosting_mode=_get_env("HOSTING_MODE", "aca"),
     )
 
     risk_thresholds = load_risk_thresholds()

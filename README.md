@@ -172,12 +172,13 @@ Deploys to Azure using Bicep IaC with three environments. Hosting mode is config
 | OpenAI (GPT-4o) | 10K TPM | 30K TPM | 80K TPM |
 | AI Search | Free | Basic | Standard |
 | Storage | LRS | ZRS | GRS |
-| Key Vault | Standard | Standard | Premium |
+| Key Vault | Standard | Standard | Standard |
 | App Insights | ❌ | ✅ | ✅ |
-| Hosting Mode | none | appService | appService |
-| App Service | ❌ | B1 | P1v3 |
-| Container Apps (ACA) | ❌ | ❌ | Optional |
-| Container Registry | ❌ | ❌ | Optional |
+| Hosting Mode | aca | aca | aca |
+| Container Apps (ACA) | ✅ | ✅ | ✅ |
+| Container Registry | Basic | Basic | Standard |
+
+> App Service hosting is also available by setting `hostingMode` to `appService`. See [docs/hosting-modes.md](docs/hosting-modes.md).
 
 ### Docker Deployment (ACA)
 
