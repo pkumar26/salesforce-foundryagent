@@ -51,7 +51,9 @@ class McpConfig:
     """MCP server configuration."""
 
     transport: str = "stdio"
-    sse_url: str = "http://localhost:8000"
+    crm_url: str = ""
+    kb_url: str = ""
+    hosting_mode: str = "none"
 
 
 @dataclass(frozen=True)
@@ -168,7 +170,9 @@ def load_config(env_file: str | Path | None = None) -> AppConfig:
 
     mcp = McpConfig(
         transport=_get_env("MCP_TRANSPORT", "stdio"),
-        sse_url=_get_env("MCP_SSE_URL", "http://localhost:8000"),
+        crm_url=_get_env("MCP_CRM_URL", ""),
+        kb_url=_get_env("MCP_KB_URL", ""),
+        hosting_mode=_get_env("HOSTING_MODE", "none"),
     )
 
     risk_thresholds = load_risk_thresholds()

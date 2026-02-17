@@ -44,5 +44,9 @@ htmlcov/
 # Azure
 .env.azure
 
+# Docker
+*.tar
+docker-compose.override.yml
+
 # Logs
 *.log

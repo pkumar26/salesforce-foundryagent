@@ -35,11 +35,19 @@ param storageRedundancy string
 @description('Whether to deploy Application Insights')
 param deployAppInsights bool
 
-@description('Whether to deploy App Service (hosted MCP)')
-param deployAppService bool
+@description('Hosting mode for MCP servers: none (notebooks only), appService, or aca')
+@allowed(['none', 'appService', 'aca'])
+param hostingMode string = 'none'
 
-@description('App Service Plan SKU')
+@description('App Service Plan SKU (used only when hostingMode == appService)')
 param appServiceSkuName string = 'B1'
+
+@description('ACR SKU (used only when hostingMode == aca)')
+@allowed(['Basic', 'Standard', 'Premium'])
+param acrSku string = 'Basic'
+
+@description('Container image tag (used only when hostingMode == aca)')
+param containerImageTag string = 'latest'
 
 @description('Mandatory resource tags')
 param tags object
@@ -121,13 +129,41 @@ module aiSearch 'modules/ai-search.bicep' = {
 }
 
 // --- Optional: App Service for hosted MCP (SSE) ---
-module appService 'modules/app-service.bicep' = if (deployAppService) {
+module appService 'modules/app-service.bicep' = if (hostingMode == 'appService') {
   scope: rg
   name: 'app-service-deployment'
   params: {
     location: location
     projectName: projectName
     skuName: appServiceSkuName
+    appInsightsConnectionString: deployAppInsights ? appInsights.outputs.connectionString : ''
+    keyVaultUri: keyvault.outputs.vaultUri
+    tags: tags
+  }
+}
+
+// --- Optional: Container Registry for ACA ---
+module containerRegistry 'modules/container-registry.bicep' = if (hostingMode == 'aca') {
+  scope: rg
+  name: 'container-registry-deployment'
+  params: {
+    location: location
+    projectName: projectName
+    sku: acrSku
+    tags: tags
+  }
+}
+
+// --- Optional: Azure Container Apps for hosted MCP (SSE) ---
+module containerApps 'modules/container-apps.bicep' = if (hostingMode == 'aca') {
+  scope: rg
+  name: 'container-apps-deployment'
+  params: {
+    location: location
+    projectName: projectName
+    logAnalyticsWorkspaceId: deployAppInsights ? appInsights.outputs.logAnalyticsWorkspaceId : ''
+    acrLoginServer: hostingMode == 'aca' ? containerRegistry.outputs.acrLoginServer : ''
+    containerImageTag: containerImageTag
     appInsightsConnectionString: deployAppInsights ? appInsights.outputs.connectionString : ''
     keyVaultUri: keyvault.outputs.vaultUri
     tags: tags
@@ -150,5 +186,14 @@ output storageAccountName string = storage.outputs.storageAccountName
 @description('App Insights connection string (empty if not deployed)')
 output appInsightsConnectionString string = deployAppInsights ? appInsights.outputs.connectionString : ''
 
-@description('Web App URL (empty if not deployed)')
-output appServiceUrl string = deployAppService ? appService.outputs.defaultHostName : ''
+@description('The hosting mode used for this deployment')
+output hostingMode string = hostingMode
+
+@description('CRM MCP server URL (empty if hostingMode == none)')
+output mcpCrmUrl string = hostingMode == 'appService' ? 'https://${appService.outputs.defaultHostName}' : hostingMode == 'aca' ? 'https://${containerApps.outputs.crmAppFqdn}' : ''
+
+@description('Knowledge MCP server URL (empty if hostingMode == none)')
+output mcpKnowledgeUrl string = hostingMode == 'appService' ? 'https://app-${projectName}-knowledge.azurewebsites.net' : hostingMode == 'aca' ? 'https://${containerApps.outputs.knowledgeAppFqdn}' : ''
+
+@description('ACR login server (empty if hostingMode != aca)')
+output acrLoginServer string = hostingMode == 'aca' ? containerRegistry.outputs.acrLoginServer : ''

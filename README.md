@@ -85,19 +85,35 @@ Start with [`02_sales_account_briefing.ipynb`](notebooks/02_sales_account_briefi
 ## Project Structure
 
 ```
+├── Dockerfile                  # Multi-stage Docker build (CRM + Knowledge targets)
 ├── agents/                     # Agent system prompts
 │   ├── sales/system_prompt.md
 │   └── service/system_prompt.md
 ├── config/                     # Configuration files
 │   └── risk_thresholds.yaml
 ├── docs/                       # Documentation
-│   ├── salesforce-setup.md
 │   ├── azure-setup.md
-│   └── extending-scenarios.md
+│   ├── data-classification.md
+│   ├── extending-scenarios.md
+│   ├── hosting-modes.md        # App Service vs Container Apps comparison
+│   ├── post-pilot-survey.md
+│   ├── salesforce-setup.md
+│   └── runbooks/               # Operational runbooks
 ├── infra/bicep/                # Azure Infrastructure as Code
-│   ├── main.bicep
+│   ├── main.bicep              # Orchestrator with hostingMode param
 │   ├── env/                    # Per-environment parameters
 │   └── modules/                # Modular Bicep resources
+│       ├── ai-foundry.bicep
+│       ├── ai-search.bicep
+│       ├── app-insights.bicep
+│       ├── app-service.bicep
+│       ├── bot-service.bicep
+│       ├── container-apps.bicep    # ACA Environment + Container Apps
+│       ├── container-registry.bicep # ACR for Docker images
+│       ├── keyvault.bicep
+│       ├── monitor-alerts.bicep
+│       ├── openai.bicep
+│       └── storage.bicep
 ├── mcp_servers/                # MCP Server implementations
 │   ├── salesforce_crm/         # 13 CRM tools
 │   └── salesforce_knowledge/   # 2 Knowledge tools
@@ -111,8 +127,12 @@ Start with [`02_sales_account_briefing.ipynb`](notebooks/02_sales_account_briefi
 ├── tests/                      # Test suite
 │   ├── unit/
 │   ├── contract/
-│   └── integration/
+│   ├── integration/
+│   └── performance/
 └── scripts/                    # Automation scripts
+    ├── bootstrap_env.sh
+    ├── deploy_app.sh           # Unified deploy (App Service or ACA)
+    └── provision_azure.sh
 ```
 
 ## MCP Tools
@@ -144,7 +164,7 @@ Start with [`02_sales_account_briefing.ipynb`](notebooks/02_sales_account_briefi
 
 ## Infrastructure
 
-Deploys to Azure using Bicep IaC with three environments:
+Deploys to Azure using Bicep IaC with three environments. Hosting mode is configurable via the `hostingMode` parameter (`none`, `appService`, or `aca`). See [docs/hosting-modes.md](docs/hosting-modes.md) for a detailed comparison.
 
 | Resource | Dev | Test | Prod |
 |----------|-----|------|------|
@@ -154,7 +174,23 @@ Deploys to Azure using Bicep IaC with three environments:
 | Storage | LRS | ZRS | GRS |
 | Key Vault | Standard | Standard | Premium |
 | App Insights | ❌ | ✅ | ✅ |
-| App Service | ❌ | ❌ | P1v3 |
+| Hosting Mode | none | appService | appService |
+| App Service | ❌ | B1 | P1v3 |
+| Container Apps (ACA) | ❌ | ❌ | Optional |
+| Container Registry | ❌ | ❌ | Optional |
+
+### Docker Deployment (ACA)
+
+When using `hostingMode=aca`, MCP servers run as containerized apps on Azure Container Apps:
+
+```bash
+# Build and deploy via the unified script
+./scripts/deploy_app.sh
+
+# Or build manually
+docker build --target crm-server -t mcp-crm:latest .
+docker build --target knowledge-server -t mcp-knowledge:latest .
+```
 
 ## Security
 

@@ -88,7 +88,10 @@ OPENAI_DEPLOYMENT=$(echo "$DEPLOYMENT_OUTPUT" | python3 -c "import sys,json; pri
 KV_URI=$(echo "$DEPLOYMENT_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['keyVaultUri']['value'])" 2>/dev/null || echo "")
 STORAGE=$(echo "$DEPLOYMENT_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['storageAccountName']['value'])" 2>/dev/null || echo "")
 APPINSIGHTS=$(echo "$DEPLOYMENT_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['appInsightsConnectionString']['value'])" 2>/dev/null || echo "")
-APP_URL=$(echo "$DEPLOYMENT_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['appServiceUrl']['value'])" 2>/dev/null || echo "")
+HOSTING_MODE=$(echo "$DEPLOYMENT_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['hostingMode']['value'])" 2>/dev/null || echo "none")
+MCP_CRM_URL=$(echo "$DEPLOYMENT_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['mcpCrmUrl']['value'])" 2>/dev/null || echo "")
+MCP_KB_URL=$(echo "$DEPLOYMENT_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['mcpKnowledgeUrl']['value'])" 2>/dev/null || echo "")
+ACR_LOGIN_SERVER=$(echo "$DEPLOYMENT_OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['acrLoginServer']['value'])" 2>/dev/null || echo "")
 
 ENV_FILE="$REPO_ROOT/.env.azure"
 cat > "$ENV_FILE" <<EOF
@@ -100,7 +103,10 @@ AZURE_AI_MODEL_NAME=${OPENAI_DEPLOYMENT}
 AZURE_KEY_VAULT_URI=${KV_URI}
 AZURE_STORAGE_ACCOUNT_NAME=${STORAGE}
 APPLICATIONINSIGHTS_CONNECTION_STRING=${APPINSIGHTS}
-APP_SERVICE_URL=${APP_URL}
+HOSTING_MODE=${HOSTING_MODE}
+MCP_CRM_URL=${MCP_CRM_URL}
+MCP_KB_URL=${MCP_KB_URL}
+ACR_LOGIN_SERVER=${ACR_LOGIN_SERVER}
 EOF
 
 echo "  Written to: $ENV_FILE"
@@ -108,11 +114,21 @@ echo ""
 echo "=============================================="
 echo "  Provisioning complete!"
 echo ""
+echo "  Hosting mode: $HOSTING_MODE"
+echo ""
 echo "  Next steps:"
 echo "  1. Copy Salesforce credentials to Key Vault:"
 echo "     az keyvault secret set --vault-name <vault> --name sf-client-id --value <id>"
 echo "     az keyvault secret set --vault-name <vault> --name sf-client-secret --value <secret>"
 echo "  2. Merge .env.azure into .env:"
 echo "     cat .env.azure >> .env"
-echo "  3. Run notebooks to verify connectivity."
+if [[ "$HOSTING_MODE" == "aca" ]]; then
+echo "  3. Build and deploy container images:"
+echo "     ./scripts/deploy_app.sh $ENVIRONMENT aca"
+elif [[ "$HOSTING_MODE" == "appService" ]]; then
+echo "  3. Deploy application to App Service:"
+echo "     ./scripts/deploy_app.sh $ENVIRONMENT appService"
+else
+echo "  3. Run notebooks to verify connectivity (stdio mode)."
+fi
 echo "=============================================="
