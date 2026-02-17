@@ -15,6 +15,7 @@ Get the Sales & Service AI Assistants running in under 15 minutes.
 | **Salesforce org** | Enterprise or Unlimited Edition with API access |
 | **Salesforce admin** | Completed Connected App setup (see [salesforce-setup.md](../../docs/salesforce-setup.md)) |
 | **Git** | For cloning the repo |
+| **Docker** _(ACA only)_ | Required if deploying with Azure Container Apps hosting mode |
 
 ---
 
@@ -64,29 +65,54 @@ For demo/development, you can also use a pre-obtained access token:
 
 ---
 
-## Step 3: Provision Azure Resources (Bicep IaC)
+## Step 3: Choose Your Hosting Mode
+
+The project supports two hosting modes for production deployment of MCP servers, plus a no-hosting mode for local development:
+
+| Mode | When to use | What it deploys |
+|------|-------------|-----------------|
+| **`none`** (default) | Local dev / notebook demos | No hosting infra; MCP servers run via stdio in-process |
+| **`appService`** | Simple PaaS deployment | App Service Plan + 2 Web Apps (zip deploy) |
+| **`aca`** | Container-based, auto-scaling | ACR + ACA Environment + 2 Container Apps |
+
+> **Default**: If you just want to run notebooks locally, leave hosting as `none`. For production, see [docs/hosting-modes.md](../../docs/hosting-modes.md) for a detailed comparison.
+
+The hosting mode is set per environment in the `.bicepparam` file (see Step 4).
+
+---
+
+## Step 4: Provision Azure Resources (Bicep IaC)
 
 All Azure resources are managed as Infrastructure as Code using **Bicep** templates in `infra/bicep/`.
 
 ### Option A: Automated provisioning script (recommended)
 
 ```bash
-# Provision the dev environment (default)
+# Provision the dev environment (default — hostingMode=none, no hosting infra)
 chmod +x scripts/provision_azure.sh
 ./scripts/provision_azure.sh dev
 
-# Provision test or prod
+# Provision test with App Service hosting
 ./scripts/provision_azure.sh test
+
+# Provision prod with ACA hosting (edit prod.bicepparam first to set hostingMode)
 ./scripts/provision_azure.sh prod
 ```
 
 The script runs `az deployment sub create` with the matching `.bicepparam` file:
 
-| Environment | Parameter File | Key Differences |
-|-------------|---------------|------------------|
-| `dev` | `infra/bicep/env/dev.bicepparam` | Free AI Search, 10K TPM, no App Service, LRS storage |
-| `test` | `infra/bicep/env/test.bicepparam` | Basic AI Search, 30K TPM, optional App Service, LRS |
-| `prod` | `infra/bicep/env/prod.bicepparam` | Standard AI Search, 80K TPM, App Service, ZRS storage |
+| Environment | Parameter File | Hosting Mode | Key Differences |
+|-------------|---------------|--------------|------------------|
+| `dev` | `infra/bicep/env/dev.bicepparam` | `none` | Free AI Search, 10K TPM, no hosting, LRS storage |
+| `test` | `infra/bicep/env/test.bicepparam` | `appService` | Basic AI Search, 30K TPM, App Service B1, ZRS |
+| `prod` | `infra/bicep/env/prod.bicepparam` | `appService` | Standard AI Search, 80K TPM, App Service P1v3, GRS |
+
+To switch prod to ACA, edit `infra/bicep/env/prod.bicepparam`:
+```bicep
+param hostingMode = 'aca'
+// param appServiceSkuName = 'P1v3'   ← remove or leave (ignored when aca)
+param acrSku = 'Standard'
+```
 
 ### Option B: Direct Bicep deployment
 
@@ -110,26 +136,43 @@ Push to `main` automatically deploys the `dev` environment. For test/prod, use t
 
 ### Resources provisioned
 
-| Resource | Module | Mandatory | Notes |
-|----------|--------|-----------|-------|
-| Storage Account | `storage.bicep` | All envs | AI Foundry dependency |
-| Key Vault | `keyvault.bicep` | All envs | Salesforce OAuth secrets |
-| AI Foundry Hub + Project | `ai-foundry.bicep` | All envs | Agent hosting |
-| Azure OpenAI (GPT-4o) | `openai.bicep` | All envs | Conversation model |
-| AI Search | `ai-search.bicep` | All envs | Knowledge article RAG |
-| Application Insights | `app-insights.bicep` | test, prod | Telemetry (optional in dev) |
-| App Service | `app-service.bicep` | prod only | Hosted MCP servers (optional in test) |
+| Resource | Module | All envs | App Service only | ACA only |
+|----------|--------|----------|-----------------|----------|
+| Storage Account | `storage.bicep` | ✅ | — | — |
+| Key Vault | `keyvault.bicep` | ✅ | — | — |
+| AI Foundry Hub + Project | `ai-foundry.bicep` | ✅ | — | — |
+| Azure OpenAI (GPT-4o) | `openai.bicep` | ✅ | — | — |
+| AI Search | `ai-search.bicep` | ✅ | — | — |
+| Application Insights | `app-insights.bicep` | test, prod | — | — |
+| App Service Plan + Web Apps | `app-service.bicep` | — | ✅ | — |
+| Container Registry | `container-registry.bicep` | — | — | ✅ |
+| ACA Environment + Container Apps | `container-apps.bicep` | — | — | ✅ |
 
 After provisioning, the script prints output values for `.env` configuration.
 
 ---
 
-## Step 4: Configure Environment
+## Step 5: Deploy MCP Servers (Hosted Mode Only)
+
+If you chose `appService` or `aca` hosting, deploy the MCP servers after provisioning:
+
+```bash
+# App Service: zip deploy
+./scripts/deploy_app.sh test appService
+
+# ACA: build Docker images, push to ACR, update container apps
+./scripts/deploy_app.sh prod aca
+```
+
+For `hostingMode = none` (dev), skip this step — notebooks run MCP servers in-process via stdio.
+
+---
+
+## Step 6: Configure Environment
 
 Edit `.env` with your values:
 
 ```bash
-# Azure AI Foundry
 # Azure AI Foundry (from Bicep deployment outputs)
 AZURE_AI_PROJECT_ENDPOINT=https://<project>.services.ai.azure.com/api
 AZURE_OPENAI_DEPLOYMENT=gpt-4o
@@ -144,13 +187,18 @@ SF_CALLBACK_URL=https://localhost:8443/callback
 # OR: Direct access token (for development/demo only)
 SF_ACCESS_TOKEN=<your-access-token>
 
+# MCP transport (set automatically by provision script)
+MCP_TRANSPORT=stdio           # or 'sse' for hosted mode
+MCP_CRM_URL=                  # set when hosting is deployed
+MCP_KB_URL=                   # set when hosting is deployed
+
 # Optional: Application Insights
 APPLICATIONINSIGHTS_CONNECTION_STRING=<from-azure-provisioning>
 ```
 
 ---
 
-## Step 5: Run a Notebook
+## Step 7: Run a Notebook
 
 Each notebook is a self-contained scenario. Start with the pipeline summary:
 
@@ -173,9 +221,11 @@ jupyter lab notebooks/01_sales_pipeline_summary.ipynb
 | `03_service_case_triage.ipynb` | "Triage case #12345 and suggest a response" | CSR |
 | `04_service_kb_assistant.ipynb` | "How do I reset a customer's API key?" | CSR |
 
+> **Note**: Notebooks work identically regardless of hosting mode. When `MCP_TRANSPORT=stdio`, the agent spawns MCP servers as subprocesses. When `MCP_TRANSPORT=sse`, the agent connects to the hosted MCP server URLs.
+
 ---
 
-## Step 6: Verify Results
+## Step 8: Verify Results
 
 A successful notebook run will show:
 
@@ -199,12 +249,17 @@ A successful notebook run will show:
 | `KNOWLEDGE_DISABLED` in KB notebook | Salesforce Knowledge must be enabled by an admin with published articles. |
 | MCP server timeout | Ensure `python` is in PATH and the virtual environment is activated. |
 | Rate limit warnings | Reduce query frequency or check Salesforce API limit via Setup → Company Information → API Requests. |
+| Docker build fails (ACA) | Ensure Docker Desktop is running. Check `docker info` for status. |
+| ACR push denied (ACA) | Run `az acr login --name <acr-name>` before pushing. |
+| ACA container crash loop | Check container logs: `az containerapp logs show --name <app> --resource-group <rg>` |
 
 ---
 
 ## Next Steps
 
 - **Try all 4 notebooks** to see Sales and Service scenarios
+- **Compare hosting modes** — see [docs/hosting-modes.md](../../docs/hosting-modes.md)
+- **Switch hosting mode** — edit your environment's `.bicepparam` file and re-provision
 - **Modify system prompts** in `agents/sales/system_prompt.md` or `agents/service/system_prompt.md`
 - **Adjust risk thresholds** in `config/risk_thresholds.yaml`
 - **Add new MCP tools** — see [docs/extending-scenarios.md](../../docs/extending-scenarios.md)

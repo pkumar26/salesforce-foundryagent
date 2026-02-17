@@ -9,18 +9,34 @@ Build an end-to-end AI assistant using **Microsoft Agent Framework** on **Azure 
 
 **Technical approach**: Python 3.11+ notebooks demonstrate each scenario end-to-end using `azure-ai-projects` SDK to create Foundry Agents with MCP tool connections to two FastMCP-based servers (`salesforce-crm` with 13 tools, `salesforce-knowledge` with 2 tools). Salesforce access is via `simple-salesforce` with REST API v62.0. Infrastructure is provisioned via modular **Bicep** templates with `.bicepparam` environment parameterization and deployed through **GitHub Actions** CI/CD pipelines.
 
+**Hosting flexibility**: Runtime components (MCP servers, API backends) can be hosted on either **Azure App Service** (PaaS, existing) or **Azure Container Apps** (container-based, new). Hosting is a configurable choice controlled by a single `hostingMode` parameter (`'none'` | `'appService'` | `'aca'`) in `.bicepparam` files. The existing App Service work is preserved intact; ACA is additive.
+
 ## Technical Context
 
 **Language/Version**: Python 3.11+
 **Primary Dependencies**: `azure-ai-projects`, `azure-identity`, `simple-salesforce`, `mcp[cli]`, `fastmcp`, `pydantic`, `httpx`, `python-dotenv`
 **Storage**: N/A — Salesforce is system of record; Azure AI Search for Knowledge Article RAG
 **Testing**: `pytest` + `pytest-asyncio`; contract tests for MCP tools
-**Target Platform**: Azure AI Foundry (cloud agents); notebooks local or Azure ML Compute
+**Target Platform**: Azure AI Foundry (cloud agents); notebooks local or Azure ML Compute; hosted MCP via App Service **or** Azure Container Apps (configurable)
 **Project Type**: Single project with modular MCP servers
 **Performance Goals**: Simple queries < 5s, complex < 15s (P95)
 **Constraints**: < 50 concurrent users; Salesforce API daily limits; Azure OpenAI token limits
 **Scale/Scope**: < 500 total users (demo-first)
 **Infrastructure**: Bicep IaC with multi-environment support (dev, test, prod); GitHub Actions CI/CD
+
+### Hosting-Specific Context
+
+| Aspect | App Service (existing) | Azure Container Apps (new) |
+|--------|----------------------|---------------------------|
+| Compute model | PaaS Web App (Linux) | Managed container platform |
+| Runtime | `PYTHON\|3.11` via built-in stack | Custom Docker image |
+| Deployment artifact | Zip deploy (`SCM_DO_BUILD_DURING_DEPLOYMENT`) | Container image push to ACR |
+| Scaling | App Service Plan SKU (manual or autoscale rules) | KEDA-based autoscale (HTTP concurrency, CPU, etc.) |
+| Ingress | Built-in `*.azurewebsites.net` | ACA Environment ingress (`*.region.azurecontainerapps.io`) |
+| Managed identity | System-assigned (existing) | System-assigned (equivalent) |
+| Environment config | App Settings (portal / Bicep) | Container App env vars + secrets |
+| Cost profile | Fixed plan cost (B1/S1/P1v3) | Consumption plan (pay-per-use) or Dedicated |
+| Container registry | Not needed | Azure Container Registry (ACR) required |
 
 ## Constitution Check (Pre-Design)
 
@@ -28,11 +44,11 @@ Build an end-to-end AI assistant using **Microsoft Agent Framework** on **Azure 
 
 | # | Principle | Status | Evidence |
 |---|-----------|--------|----------|
-| I | Integration-First Architecture | ✅ PASS | MCP servers expose well-defined JSON Schema contracts per tool. All Salesforce object dependencies documented in data-model.md. OAuth 2.0 per-user auth via Connected Apps — no hard-coded credentials. Data flow direction documented per object. |
+| I | Integration-First Architecture | ✅ PASS | MCP servers expose well-defined JSON Schema contracts per tool. All Salesforce object dependencies documented in data-model.md. OAuth 2.0 per-user auth via Connected Apps — no hard-coded credentials. Data flow direction documented per object. Hosting platform is transparent to integration contracts (same SSE endpoints on App Service or ACA). |
 | II | Security & Compliance by Default | ✅ PASS | Per-user delegated OAuth enforces FLS/sharing rules natively. PII confined to Salesforce (no caching). TLS 1.2+ in transit, Key Vault for secrets. Least-privilege scopes: `api`, `refresh_token`, `openid`. |
 | III | AI-Responsible & Human-in-the-Loop | ✅ PASS | All write-backs require explicit user confirmation (FR-007). Responses cite Salesforce record IDs (FR-011). Azure AI Content Safety enabled on all deployments. System prompts enforce grounding constraints. |
-| IV | Iterative Delivery & Phased Rollout | ✅ PASS | 4-phase plan: Foundation → MCP → Agent Integration → Polish. Notebooks as POC deliverables per phase. Go/no-go criteria per phase. |
-| V | Operational Excellence & Observability | ✅ PASS | Application Insights for telemetry. Per-session API call tracking in `salesforce_client.py`. Structured error responses with error codes. Provisioned via observability Bicep module. |
+| IV | Iterative Delivery & Phased Rollout | ✅ PASS | 4-phase plan: Foundation → MCP → Agent Integration → Polish. Notebooks as POC deliverables per phase. Go/no-go criteria per phase. ACA is additive — existing App Service remains default; users opt-in to ACA per environment. |
+| V | Operational Excellence & Observability | ✅ PASS | Application Insights for telemetry. Per-session API call tracking in `salesforce_client.py`. Structured error responses with error codes. Provisioned via observability Bicep module. ACA emits structured logs to the same Log Analytics workspace via ACA Environment diagnostics. |
 
 **Gate result**: PASS — proceed to Phase 0.
 
@@ -42,7 +58,8 @@ The following constitution requirements are formally deferred for the demo-first
 
 | Principle | Constitution Requirement | Exception | Rationale |
 |-----------|------------------------|-----------|----------|
-| I | Azure API Management as primary integration channel | Deferred to production phase | Demo-first deployment (< 50 users) uses direct Salesforce REST via `simple-salesforce`. APIM will be added when scaling beyond demo. Rate limiting is enforced in application code (`salesforce_client.py`). |
+| I | Azure API Management as primary integration channel | Deferred to production phase | Demo-first deployment (< 50 users) uses direct Salesforce REST via `simple-salesforce`. APIM will be added when scaling beyond demo. Rate limiting is enforced in application code (`salesforce_client.py`) in lieu of APIM throttling policies during the demo phase. |
+| II | Salesforce API rate limits monitored and enforced via APIM throttling policies | Deferred to production phase (rate limiting via application code) | Rate limits are monitored and enforced in `shared/salesforce_client.py` (per-session tracking, warning at 80%, hard stop at limit). APIM-based throttling will be added when APIM is introduced at production scale. |
 | I | MuleSoft as optional middleware | Not applicable | Direct REST integration selected per plan. |
 | IV | 4-week production Pilot | Replaced with structured validation phase | Demo-first posture uses notebook-based validation with representative scenarios before expanding to production users. |
 | V | Salesforce Platform Events for integration monitoring | Deferred to production phase | Demo phase uses direct REST polling. Platform Events will be added for near-real-time CRM event capture when scaling to production. |
@@ -103,17 +120,21 @@ salesforce-foundryagent/
 │   ├── models.py                       # Pydantic response models
 │   ├── salesforce_client.py            # SF REST wrapper + rate tracking
 │   ├── auth.py                         # OAuth flow helpers
-│   └── config.py                       # Environment + config loader
+│   ├── config.py                       # Environment + config loader
+│   ├── knowledge_sync.py              # Azure AI Search ↔ SF KB sync
+│   └── telemetry.py                    # Application Insights helpers
 │
 ├── notebooks/
 │   ├── 01_sales_pipeline_summary.ipynb
 │   ├── 02_sales_account_briefing.ipynb
 │   ├── 03_service_case_triage.ipynb
-│   └── 04_service_kb_assistant.ipynb
+│   ├── 04_service_kb_assistant.ipynb
+│   └── 05_orchestrator_multi_domain.ipynb
 │
 ├── scripts/
 │   ├── bootstrap_env.sh                # Venv + deps + .env setup
-│   └── provision_azure.sh              # Wraps `az deployment` with Bicep
+│   ├── provision_azure.sh              # Wraps `az deployment` with Bicep
+│   └── deploy_app.sh                   # NEW: Unified deploy (zip → App Service, image → ACA)
 │
 ├── infra/
 │   └── bicep/
@@ -130,6 +151,9 @@ salesforce-foundryagent/
 │           ├── storage.bicep           # Storage Account (AI Foundry dependency)
 │           ├── app-insights.bicep      # Application Insights + Log Analytics
 │           ├── app-service.bicep       # App Service (optional: hosted MCP/SSE)
+│           ├── container-apps.bicep    # NEW: ACA Environment + Container Apps
+│           ├── container-registry.bicep # NEW: Azure Container Registry
+│           ├── monitor-alerts.bicep     # Azure Monitor alert rules
 │           └── bot-service.bicep       # Azure Bot Service (Teams channel)
 │
 ├── .github/
@@ -143,7 +167,8 @@ salesforce-foundryagent/
 ├── docs/
 │   ├── salesforce-setup.md             # Connected App configuration guide
 │   ├── azure-setup.md                  # Azure resource setup guide
-│   └── extending-scenarios.md          # How to add new MCP tools
+│   ├── extending-scenarios.md          # How to add new MCP tools
+│   └── hosting-modes.md                # NEW: App Service vs ACA comparison
 │
 ├── tests/
 │   ├── unit/
@@ -152,16 +177,20 @@ salesforce-foundryagent/
 │   ├── contract/
 │   │   ├── test_crm_tools.py
 │   │   └── test_knowledge_tools.py
-│   └── integration/
-│       └── test_agent_e2e.py
+│   ├── integration/
+│   │   ├── test_agent_e2e.py
+│   │   └── test_teams_bot.py
+│   └── performance/
+│       └── test_load.py
 │
 ├── .env.example                        # Template for environment variables
+├── Dockerfile                          # NEW: Multi-stage build for MCP servers (ACA)
 ├── requirements.txt                    # Python dependencies
 ├── pyproject.toml                      # Project metadata
 └── README.md
 ```
 
-**Structure Decision**: Single-project layout with modular MCP servers under `mcp_servers/`. Infrastructure as Code uses a modular Bicep layout under `infra/bicep/` with per-environment `.bicepparam` files. GitHub Actions workflows under `.github/workflows/` handle CI and infrastructure deployment.
+**Structure Decision**: Single-project layout with modular MCP servers under `mcp_servers/`. Infrastructure as Code uses a modular Bicep layout under `infra/bicep/` with per-environment `.bicepparam` files. GitHub Actions workflows under `.github/workflows/` handle CI and infrastructure deployment. Hosting mode (App Service or ACA) is selected per environment via `hostingMode` parameter — no code duplication between hosting paths.
 
 ---
 
@@ -326,6 +355,23 @@ Each notebook is a self-contained scenario demonstrating one user story end-to-e
 | 7 | Code | Follow-up: "What about SSO configuration?" |
 | 8 | Code | Cleanup |
 
+### Notebook 5: Orchestrator Multi-Domain (`05_orchestrator_multi_domain.ipynb`)
+
+**User Story**: US7 (Orchestrator-Coordinated Multi-Domain Workflow)
+**Persona**: Cross-functional user (AE or CSR)
+
+| Cell # | Type | Purpose |
+|--------|------|--------|
+| 1 | Markdown | Title, description, multi-domain prerequisites |
+| 2 | Code | Environment + auth setup |
+| 3 | Code | MCP connections: salesforce-crm + salesforce-knowledge |
+| 4 | Code | Create Orchestrator Agent with Sales Agent + Service Agent sub-agents |
+| 5 | Code | Cross-domain query: "Which of my accounts have both open deals and open support cases?" |
+| 6 | Code | Display unified response with deal + case details |
+| 7 | Code | Follow-up: "What are the top cases today?" then "And what deals do those same accounts have?" |
+| 8 | Code | Verify context maintained across domain pivot |
+| 9 | Code | Cleanup |
+
 ---
 
 ## Infrastructure as Code (Bicep) Strategy
@@ -347,9 +393,9 @@ infra/bicep/
 ├── main.bicep              # Orchestrator: composes all modules
 ├── main.bicepparam         # Shared default parameters (used by dev)
 ├── env/
-│   ├── dev.bicepparam      # Dev: minimal SKUs, no App Service
-│   ├── test.bicepparam     # Test: mid-tier SKUs, optional App Service
-│   └── prod.bicepparam     # Prod: production SKUs, App Service, diagnostics
+│   ├── dev.bicepparam      # Dev: minimal SKUs, hostingMode = 'none'
+│   ├── test.bicepparam     # Test: mid-tier SKUs, hostingMode = 'appService' or 'aca'
+│   └── prod.bicepparam     # Prod: production SKUs, hostingMode = 'appService' or 'aca'
 └── modules/
     ├── ai-foundry.bicep    # AI Foundry Hub + Project
     ├── openai.bicep        # Azure OpenAI Service + GPT-4o deployment
@@ -357,7 +403,11 @@ infra/bicep/
     ├── keyvault.bicep      # Key Vault + access policies
     ├── storage.bicep       # Storage Account (AI Foundry dependency)
     ├── app-insights.bicep  # Application Insights + Log Analytics workspace
-    └── app-service.bicep   # App Service Plan + Web App (hosted MCP/SSE)
+    ├── app-service.bicep   # App Service Plan + Web App (hostingMode = 'appService')
+    ├── container-apps.bicep    # NEW: ACA Environment + Container Apps (hostingMode = 'aca')
+    ├── container-registry.bicep # NEW: ACR (required when hostingMode = 'aca')
+    ├── monitor-alerts.bicep     # Azure Monitor alert rules
+    └── bot-service.bicep   # Azure Bot Service (Teams channel)
 ```
 
 ### Module Dependency Graph
@@ -385,9 +435,20 @@ infra/bicep/
           └──────────► ai-search  │             │
                      └────────────┘             │
                                                 │
+            hostingMode='appService':           │
                      ┌────────────┐             │
                      │app-service ◄─────────────┘
                      │ (optional) │
+                     └────────────┘
+
+            hostingMode='aca':                  │
+                     ┌────────────┐             │
+                     │ container- │             │
+                     │ registry   │             │
+                     └─────┬──────┘             │
+                     ┌─────▼──────┐             │
+                     │ container- ◄─────────────┘
+                     │ apps       │
                      └────────────┘
 ```
 
@@ -404,10 +465,13 @@ infra/bicep/
 | **Storage Account** | ✅ Mandatory | ✅ Mandatory | ✅ Mandatory | AI Foundry file store |
 | **Application Insights** | ⚡ Optional | ✅ Mandatory | ✅ Mandatory | Telemetry |
 | **Log Analytics Workspace** | ⚡ Optional | ✅ Mandatory | ✅ Mandatory | Diagnostics |
-| **App Service Plan** | ❌ Not deployed | ⚡ Optional | ✅ Mandatory | Hosted MCP (SSE) |
-| **App Service (Web App)** | ❌ Not deployed | ⚡ Optional | ✅ Mandatory | MCP server hosting |
+| **App Service Plan** | ❌ Not deployed | ⚡ If `hostingMode = 'appService'` | ⚡ If `hostingMode = 'appService'` | Hosted MCP (SSE) |
+| **App Service (Web App)** | ❌ Not deployed | ⚡ If `hostingMode = 'appService'` | ⚡ If `hostingMode = 'appService'` | MCP server hosting |
+| **Azure Container Registry** | ❌ Not deployed | ⚡ If `hostingMode = 'aca'` | ⚡ If `hostingMode = 'aca'` | Container image store |
+| **ACA Environment** | ❌ Not deployed | ⚡ If `hostingMode = 'aca'` | ⚡ If `hostingMode = 'aca'` | Container hosting |
+| **ACA Container Apps** | ❌ Not deployed | ⚡ If `hostingMode = 'aca'` | ⚡ If `hostingMode = 'aca'` | MCP server containers |
 
-**Legend**: ✅ = deployed by default, ⚡ = deployed if `deploy*` param is `true`, ❌ = not deployed
+**Legend**: ✅ = deployed by default, ⚡ = deployed conditionally based on parameter, ❌ = not deployed
 
 ### Environment SKU Strategy
 
@@ -421,6 +485,8 @@ infra/bicep/
 | Storage Account | Standard LRS | Standard LRS | Standard ZRS |
 | App Insights | — | Standard | Standard |
 | App Service Plan | — | B1 (Basic) | S1 (Standard) |
+| Container Registry | — | Basic | Standard |
+| ACA Environment | — | Consumption | Consumption |
 
 ### `.bicepparam` Environment Parameterization
 
@@ -438,7 +504,7 @@ param aiSearchSku = 'free'
 param keyVaultSku = 'standard'
 param storageRedundancy = 'LRS'
 param deployAppInsights = false             // Optional for dev
-param deployAppService = false              // Notebooks only — no hosted MCP
+param hostingMode = 'none'                  // Notebooks only — no hosted MCP
 param tags = {
   environment: 'dev'
   project: 'salesforce-ai-assistant'
@@ -458,8 +524,9 @@ param aiSearchSku = 'basic'
 param keyVaultSku = 'standard'
 param storageRedundancy = 'LRS'
 param deployAppInsights = true
-param deployAppService = true               // Hosted MCP for integration tests
-param appServiceSkuName = 'B1'
+param hostingMode = 'appService'            // Or 'aca' — user's choice
+param appServiceSkuName = 'B1'              // Used when hostingMode = 'appService'
+param acrSku = 'Basic'                      // Used when hostingMode = 'aca'
 param tags = {
   environment: 'test'
   project: 'salesforce-ai-assistant'
@@ -479,8 +546,9 @@ param aiSearchSku = 'standard'
 param keyVaultSku = 'premium'               // HSM-backed for compliance
 param storageRedundancy = 'ZRS'             // Zone-redundant
 param deployAppInsights = true
-param deployAppService = true
-param appServiceSkuName = 'S1'
+param hostingMode = 'appService'            // Or 'aca' — user's choice
+param appServiceSkuName = 'S1'              // Used when hostingMode = 'appService'
+param acrSku = 'Standard'                   // Used when hostingMode = 'aca'
 param tags = {
   environment: 'prod'
   project: 'salesforce-ai-assistant'
@@ -503,8 +571,13 @@ param aiSearchSku string
 param keyVaultSku string
 param storageRedundancy string
 param deployAppInsights bool
-param deployAppService bool
-param appServiceSkuName string = 'B1'
+
+@allowed(['none', 'appService', 'aca'])
+param hostingMode string = 'none'           // Replaces deployAppService boolean
+
+param appServiceSkuName string = 'B1'       // Used when hostingMode = 'appService'
+param acrSku string = 'Basic'               // Used when hostingMode = 'aca'
+param containerImageTag string = 'latest'   // Used when hostingMode = 'aca'
 param tags object  // { environment, project, managedBy }
 
 // --- Resource Group ---
@@ -534,10 +607,24 @@ module openai 'modules/openai.bicep' = {
 }
 module aiSearch 'modules/ai-search.bicep' = { scope: rg, params: { sku: aiSearchSku } }
 
-// --- Optional: App Service for hosted MCP (SSE) ---
-module appService 'modules/app-service.bicep' = if (deployAppService) {
+// --- Hosting: App Service (when hostingMode = 'appService') ---
+module appService 'modules/app-service.bicep' = if (hostingMode == 'appService') {
   scope: rg
   params: { skuName: appServiceSkuName }
+}
+
+// --- Hosting: Container Apps (when hostingMode = 'aca') ---
+module acr 'modules/container-registry.bicep' = if (hostingMode == 'aca') {
+  scope: rg
+  params: { sku: acrSku }
+}
+module containerApps 'modules/container-apps.bicep' = if (hostingMode == 'aca') {
+  scope: rg
+  params: {
+    acrLoginServer: acr.outputs.loginServer
+    logAnalyticsWorkspaceId: deployAppInsights ? appInsights.outputs.logAnalyticsWorkspaceId : ''
+    imageTag: containerImageTag
+  }
 }
 
 // --- Outputs (consumed by provision_azure.sh → .env) ---
@@ -546,8 +633,14 @@ output openaiDeploymentName string = openai.outputs.deploymentName
 output keyVaultUri string = keyvault.outputs.vaultUri
 output storageAccountName string = storage.outputs.storageAccountName
 output appInsightsConnectionString string = deployAppInsights ? appInsights.outputs.connectionString : ''
-output appServiceUrl string = deployAppService ? appService.outputs.defaultHostName : ''
+output hostingMode string = hostingMode
+output mcpCrmUrl string = hostingMode == 'appService' ? 'https://${appService.outputs.crmHostName}' : hostingMode == 'aca' ? 'https://${containerApps.outputs.crmFqdn}' : ''
+output mcpKnowledgeUrl string = hostingMode == 'appService' ? 'https://${appService.outputs.knowledgeHostName}' : hostingMode == 'aca' ? 'https://${containerApps.outputs.knowledgeFqdn}' : ''
+output acrLoginServer string = hostingMode == 'aca' ? acr.outputs.loginServer : ''
 ```
+
+> **Migration note**: The `deployAppService` boolean parameter is replaced by `hostingMode` enum.
+> `deployAppService = true` → `hostingMode = 'appService'`, `deployAppService = false` → `hostingMode = 'none'`.
 
 ### Deployment Commands
 
@@ -616,6 +709,10 @@ After Bicep deployment, resource connection strings and endpoints flow to notebo
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | `appInsightsConnectionString` | `app-insights.bicep` |
 | `AZURE_KEYVAULT_URL` | `keyVaultUri` | `keyvault.bicep` |
 | `AZURE_STORAGE_ACCOUNT_NAME` | `storageAccountName` | `storage.bicep` |
+| `HOSTING_MODE` | `hostingMode` | `main.bicep` |
+| `MCP_CRM_URL` | `mcpCrmUrl` | `main.bicep` (conditional) |
+| `MCP_KB_URL` | `mcpKnowledgeUrl` | `main.bicep` (conditional) |
+| `ACR_LOGIN_SERVER` | `acrLoginServer` | `container-registry.bicep` (ACA only) |
 
 **Salesforce variables** (`SF_CONSUMER_KEY`, `SF_CONSUMER_SECRET`, etc.) are managed manually — they come from the Salesforce Connected App, not Azure provisioning. They are stored in Key Vault and referenced by the notebooks via Key Vault SDK or directly via `.env` for local development.
 
@@ -657,6 +754,17 @@ az deployment sub create \
 echo "# Azure outputs from Bicep deployment (${ENV})" > .env.azure
 jq -r 'to_entries[] | "\(.key | ascii_upcase)=\(.value.value)"' /tmp/deploy-outputs.json >> .env.azure
 echo "Azure outputs written to .env.azure — merge into .env"
+
+# Display hosting mode info
+HOSTING_MODE=$(jq -r '.hostingMode.value // "none"' /tmp/deploy-outputs.json)
+echo "Hosting mode: ${HOSTING_MODE}"
+if [[ "${HOSTING_MODE}" == "aca" ]]; then
+  echo "ACR Login Server: $(jq -r '.acrLoginServer.value' /tmp/deploy-outputs.json)"
+  echo "Run scripts/deploy_app.sh ${ENV} to build and push container images"
+elif [[ "${HOSTING_MODE}" == "appService" ]]; then
+  echo "MCP CRM URL: $(jq -r '.mcpCrmUrl.value' /tmp/deploy-outputs.json)"
+  echo "MCP KB URL: $(jq -r '.mcpKnowledgeUrl.value' /tmp/deploy-outputs.json)"
+fi
 ```
 
 ---
@@ -848,6 +956,7 @@ Each GitHub environment (`dev`, `test`, `prod`) can have:
 | salesforce-setup.md | docs/ | Connected App creation, OAuth scopes, IP allowlisting |
 | azure-setup.md | docs/ | Manual Azure provisioning alternative, Bicep module reference, per-environment guidance |
 | extending-scenarios.md | docs/ | How to add new MCP tools and notebooks |
+| hosting-modes.md | docs/ | NEW: App Service vs ACA comparison, migration guide, cost analysis |
 
 ---
 
@@ -916,9 +1025,15 @@ Each GitHub environment (`dev`, `test`, `prod`) can have:
 | 3.6 | Implement write-back confirmation protocol (create_case, update_case, etc.) | 3.3 | Confirmation UX |
 | 3.7 | Write integration tests (`tests/integration/test_agent_e2e.py`) | 3.1–3.4 | E2E tests |
 | 3.8 | **Bicep: `modules/app-service.bicep`** (hosted MCP/SSE) | 2.17 | App Service IaC |
-| 3.9 | **Update `main.bicep`**: add App Service module (conditional) | 3.8 | Complete IaC |
+| 3.9 | **Update `main.bicep`**: replace `deployAppService` with `hostingMode` enum, add conditional hosting modules | 3.8, 3.12 | Complete IaC |
 | 3.10 | **Provision test environment** via `deploy-infra.yml` | 3.9, 2.19 | Test Azure resources |
-| 3.11 | **Update `provision_azure.sh`**: Bicep + output capture | 3.9 | Updated script |
+| 3.11 | **Update `provision_azure.sh`**: extract `hostingMode`, `mcpCrmUrl`, `mcpKnowledgeUrl`, `acrLoginServer` outputs | 3.9 | Updated script |
+| 3.12 | **Bicep: `modules/container-registry.bicep`** (ACR for ACA) | 2.17 | ACR IaC |
+| 3.13 | **Bicep: `modules/container-apps.bicep`** (ACA Environment + Container Apps) | 3.12, 1.14 | ACA IaC |
+| 3.14 | **Create `Dockerfile`**: multi-stage build with `crm-server` and `knowledge-server` targets | 2.1, 2.9 | Dockerfile |
+| 3.15 | **Create `scripts/deploy_app.sh`**: unified deploy (zip → App Service, image → ACA) | 3.9, 3.14 | Deploy script |
+| 3.16 | **Update `shared/config.py`**: add `crm_url`, `kb_url` fields from `MCP_CRM_URL` / `MCP_KB_URL` env vars | 1.2 | Config update |
+| 3.17 | **Update `.bicepparam` files**: replace `deployAppService` with `hostingMode` parameter | 3.9 | Param migration |
 
 ### Phase 4: Polish & Documentation (Week 7–8)
 
@@ -933,8 +1048,10 @@ Each GitHub environment (`dev`, `test`, `prod`) can have:
 | 4.7 | Final review: all notebooks run end-to-end against real org | All | Validated demo |
 | 4.8 | **Provision prod environment** (manual approval gate) | 4.7, 3.9 | Prod Azure resources |
 | 4.9 | **Security review**: Key Vault access policies, RBAC, network rules | 4.8 | Security sign-off |
+| 4.10 | Write `docs/hosting-modes.md` (App Service vs ACA comparison) | 3.13, 3.15 | Hosting guide |
+| 4.11 | **Update CI/CD `deploy-infra.yml`**: add `HOSTING_MODE` variable, Docker build+push steps for ACA | 3.14, 3.15 | CI/CD update |
 
-**Total**: 49 tasks across 4 phases (8 weeks). IaC tasks are integrated into each phase alongside the application code they support.
+**Total**: 57 high-level tasks across 4 phases (8 weeks); see `tasks.md` for 85 detailed implementation tasks including sub-tasks and hosting additions. IaC tasks are integrated into each phase alongside the application code they support. ACA hosting tasks (3.12–3.17, 4.10–4.11) are additive — existing App Service tasks remain unchanged.
 
 ---
 
@@ -944,10 +1061,10 @@ Each GitHub environment (`dev`, `test`, `prod`) can have:
 
 | # | Principle | Status | Evidence |
 |---|-----------|--------|----------|
-| I | Integration-First Architecture | ✅ PASS | All 15 MCP tools have JSON Schema contracts. Bicep modules expose typed parameters and outputs. Each module declares dependencies explicitly. `.bicepparam` files are the single source of environment configuration. |
-| II | Security & Compliance by Default | ✅ PASS | Key Vault with HSM (prod) for secrets. Per-user OAuth enforces FLS/sharing. OIDC for GitHub Actions → Azure auth (no stored credentials). `@secure()` decorator on all sensitive Bicep parameters. Storage ZRS in prod. |
+| I | Integration-First Architecture | ✅ PASS | All 15 MCP tools have JSON Schema contracts. Bicep modules expose typed parameters and outputs. Each module declares dependencies explicitly. `.bicepparam` files are the single source of environment configuration. `hostingMode` parameter abstracts hosting choice — same MCP endpoints regardless of platform. |
+| II | Security & Compliance by Default | ✅ PASS | Key Vault with HSM (prod) for secrets. Per-user OAuth enforces FLS/sharing. OIDC for GitHub Actions → Azure auth (no stored credentials). `@secure()` decorator on all sensitive Bicep parameters. Storage ZRS in prod. ACA uses managed identity with `AcrPull` for registry access; ACR admin user disabled. |
 | III | AI-Responsible & Human-in-the-Loop | ✅ PASS | Write-back tools require explicit confirmation. Azure AI Content Safety enabled at platform level. System prompts enforce citation requirements. All AI actions auditable via Application Insights. |
-| IV | Iterative Delivery & Phased Rollout | ✅ PASS | 4-phase plan with IaC tasks integrated per phase. Dev environment in Phase 1; test in Phase 3; prod in Phase 4 (with manual approval gate). GitHub Actions enforces progressive deployment (dev → test → prod). |
-| V | Operational Excellence & Observability | ✅ PASS | Application Insights provisioned via Bicep module. Log Analytics workspace for diagnostics. CI pipeline validates Bicep syntax. `deploy-infra.yml` includes what-if validation before deployment. Per-session API rate tracking in application code. |
+| IV | Iterative Delivery & Phased Rollout | ✅ PASS | 4-phase plan with IaC tasks integrated per phase. Dev environment in Phase 1; test in Phase 3; prod in Phase 4 (with manual approval gate). GitHub Actions enforces progressive deployment (dev → test → prod). ACA tasks are additive in Phase 3; existing App Service tasks unchanged. |
+| V | Operational Excellence & Observability | ✅ PASS | Application Insights provisioned via Bicep module. Log Analytics workspace for diagnostics (shared by App Service and ACA). CI pipeline validates Bicep syntax. `deploy-infra.yml` includes what-if validation before deployment. Per-session API rate tracking in application code. |
 
 **Gate result**: PASS — all principles satisfied post-design. Proceed to Phase 2 (task generation via `/speckit.tasks`).

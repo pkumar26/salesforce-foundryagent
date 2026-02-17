@@ -1,9 +1,11 @@
 # Bicep Module Contracts
 
-**Date**: 2026-02-16 | **Phase**: 1 (Design & Contracts)
-**Source**: Plan IaC strategy section and Azure resource requirements from research.md
+**Date**: 2026-02-16 (updated) | **Phase**: 1 (Design & Contracts)
+**Source**: Plan IaC strategy section, Azure resource requirements from research.md, and hosting-mode research.
 
 Each module below documents its **parameters** (inputs), **outputs**, and **purpose**. These contracts define what `main.bicep` passes to each module and what it receives back.
+
+> **Hosting-mode update**: This document now includes contracts for `container-registry.bicep` and `container-apps.bicep` modules. The existing `app-service.bicep` contract is unchanged. The `main.bicep` parameter contract has been updated to replace `deployAppService` with `hostingMode`.
 
 ---
 
@@ -258,8 +260,11 @@ These are the top-level parameters accepted by `main.bicep` and supplied by `.bi
 | `keyVaultSku` | `string` | Yes | Key Vault tier: `standard`, `premium` |
 | `storageRedundancy` | `string` | Yes | Storage replication: `LRS`, `ZRS`, `GRS` |
 | `deployAppInsights` | `bool` | Yes | Whether to deploy Application Insights |
-| `deployAppService` | `bool` | Yes | Whether to deploy App Service (hosted MCP) |
-| `appServiceSkuName` | `string` | No | App Service Plan SKU (default: `B1`) |
+| `hostingMode` | `string` | No | Hosting mode: `'none'` (default), `'appService'`, `'aca'` |
+| `appServiceSkuName` | `string` | No | App Service Plan SKU (default: `B1`). Used only when `hostingMode == 'appService'`. |
+| `acrSku` | `string` | No | ACR SKU (default: `Basic`). Used only when `hostingMode == 'aca'`. |
+| `acaWorkloadProfile` | `string` | No | ACA workload profile: `Consumption` (default) or `D4`. Used only when `hostingMode == 'aca'`. |
+| `containerImageTag` | `string` | No | Container image tag (default: `latest`). Used only when `hostingMode == 'aca'`. |
 | `tags` | `object` | Yes | Mandatory resource tags |
 
 ### `main.bicep` Outputs
@@ -271,4 +276,102 @@ These are the top-level parameters accepted by `main.bicep` and supplied by `.bi
 | `keyVaultUri` | `string` | `keyvault` | Key Vault URI |
 | `storageAccountName` | `string` | `storage` | Storage account name |
 | `appInsightsConnectionString` | `string` | `app-insights` | App Insights connection string (empty if not deployed) |
-| `appServiceUrl` | `string` | `app-service` | Web App URL (empty if not deployed) |
+| `hostingMode` | `string` | _(param echo)_ | The hosting mode used for this deployment |
+| `mcpCrmUrl` | `string` | `app-service` or `container-apps` | CRM MCP server URL (empty if `hostingMode == 'none'`) |
+| `mcpKnowledgeUrl` | `string` | `app-service` or `container-apps` | Knowledge MCP server URL (empty if `hostingMode == 'none'`) |
+| `acrLoginServer` | `string` | `container-registry` | ACR login server (empty if `hostingMode != 'aca'`) |
+
+### Migration Note
+
+The previous `deployAppService` boolean parameter and `appServiceUrl` output are replaced by:
+- `deployAppService = false` → `hostingMode = 'none'`
+- `deployAppService = true` → `hostingMode = 'appService'`
+- _(new)_ → `hostingMode = 'aca'`
+
+The `appServiceUrl` output is replaced by `mcpCrmUrl` and `mcpKnowledgeUrl` which work for both hosting modes.
+
+---
+
+## Module: `container-registry.bicep` _(NEW)_
+
+**Purpose**: Provision Azure Container Registry for storing MCP server Docker images. **Only deployed when `hostingMode == 'aca'`.**
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `location` | `string` | Yes | — | Azure region |
+| `projectName` | `string` | Yes | — | Base name for naming (`cr{projectName}` — alphanumeric only) |
+| `sku` | `string` | No | `'Basic'` | ACR SKU: `Basic`, `Standard`, `Premium` |
+| `adminUserEnabled` | `bool` | No | `false` | Whether admin user is enabled (should be `false` — use managed identity) |
+| `tags` | `object` | No | `{}` | Resource tags |
+
+### Outputs
+
+| Output | Type | Description |
+|--------|------|-------------|
+| `acrId` | `string` | Resource ID of the Container Registry |
+| `acrName` | `string` | Name of the Container Registry |
+| `acrLoginServer` | `string` | ACR login server (e.g., `crsfaidev.azurecr.io`) |
+
+### Resource
+
+| Resource Type | API Version |
+|---------------|-------------|
+| `Microsoft.ContainerRegistry/registries` | `2023-11-01-preview` |
+
+### Notes
+
+- Admin user is disabled by default. ACA pulls images using its system-assigned managed identity with `AcrPull` role assignment.
+- Image naming convention: `<acrLoginServer>/sfai-crm:<tag>`, `<acrLoginServer>/sfai-knowledge:<tag>`
+
+---
+
+## Module: `container-apps.bicep` _(NEW)_
+
+**Purpose**: Provision an ACA Environment and two Container Apps (CRM MCP server, Knowledge MCP server) for hosting MCP servers in SSE mode. **Only deployed when `hostingMode == 'aca'`.**
+
+### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `location` | `string` | Yes | — | Azure region |
+| `projectName` | `string` | Yes | — | Base name for naming (`cae-{projectName}`, `ca-{projectName}-crm`, `ca-{projectName}-knowledge`) |
+| `logAnalyticsWorkspaceId` | `string` | Yes | — | Resource ID of the Log Analytics workspace (from `app-insights.bicep` or standalone) |
+| `acrLoginServer` | `string` | Yes | — | ACR login server for image pull (from `container-registry.bicep`) |
+| `containerImageTag` | `string` | No | `'latest'` | Container image tag |
+| `appInsightsConnectionString` | `string` | No | `''` | App Insights connection string |
+| `keyVaultUri` | `string` | No | `''` | Key Vault URI for secret references |
+| `workloadProfile` | `string` | No | `'Consumption'` | Workload profile: `Consumption` or `D4` |
+| `minReplicas` | `int` | No | `0` | Minimum replica count (0 enables scale-to-zero) |
+| `maxReplicas` | `int` | No | `3` | Maximum replica count |
+| `tags` | `object` | No | `{}` | Resource tags |
+
+### Outputs
+
+| Output | Type | Description |
+|--------|------|-------------|
+| `environmentId` | `string` | Resource ID of the ACA Environment |
+| `crmAppFqdn` | `string` | FQDN of the CRM MCP server (e.g., `ca-sfai-dev-crm.<region>.azurecontainerapps.io`) |
+| `knowledgeAppFqdn` | `string` | FQDN of the Knowledge MCP server |
+| `crmAppName` | `string` | Name of the CRM Container App |
+| `knowledgeAppName` | `string` | Name of the Knowledge Container App |
+| `crmPrincipalId` | `string` | CRM app system-assigned managed identity principal ID |
+| `knowledgePrincipalId` | `string` | Knowledge app system-assigned managed identity principal ID |
+
+### Resources
+
+| Resource Type | API Version |
+|---------------|-------------|
+| `Microsoft.App/managedEnvironments` | `2024-03-01` |
+| `Microsoft.App/containerApps` | `2024-03-01` |
+
+### Notes
+
+- ACA Environment uses `appLogsConfiguration` with Log Analytics workspace.
+- Both Container Apps use system-assigned managed identity for Key Vault and ACR access.
+- Ingress is configured as external, HTTPS-only, targeting port 8000.
+- Container image references: `<acrLoginServer>/sfai-crm:<tag>` and `<acrLoginServer>/sfai-knowledge:<tag>`.
+- Environment variables match the App Service contract: `MCP_TRANSPORT=sse`, `APPLICATIONINSIGHTS_CONNECTION_STRING`, `KEY_VAULT_URI`.
+- Health probes: HTTP GET `/health` on port 8000 (liveness + readiness).
+- An `AcrPull` role assignment is created within this module for each container app's managed identity on the ACR resource.

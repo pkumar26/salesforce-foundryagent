@@ -1,7 +1,7 @@
 # Research: Salesforce AI Assistant
 
-**Date**: 2026-02-16 | **Phase**: 0 (Outline & Research)
-**Purpose**: Resolve all NEEDS CLARIFICATION items from Technical Context and document technology decisions.
+**Date**: 2026-02-16 (updated) | **Phase**: 0 (Outline & Research)
+**Purpose**: Resolve all NEEDS CLARIFICATION items from Technical Context and document technology decisions. Updated to include hosting-mode research for adding Azure Container Apps (ACA) as a configurable deployment alternative alongside Azure App Service.
 
 ---
 
@@ -330,3 +330,260 @@ Where applicable, modules follow Azure Verified Module patterns for naming, tagg
 | Content safety | Platform-level Azure AI Content Safety |
 | Rate limiting | Per-session tracking in salesforce_client.py wrapper |
 | Infrastructure | Bicep IaC, modular modules, `.bicepparam` per env, GitHub Actions CI/CD |
+| Hosting mode | Configurable `hostingMode` enum: `'none'`, `'appService'`, `'aca'` |
+| Container registry | ACR Basic (dev/test), Standard (prod); deployed only with ACA |
+| Dockerfile strategy | Multi-stage, single file, two named targets (`crm-server`, `knowledge-server`) |
+| ACA integration | Consumption plan, Log Analytics reuse, managed identity for ACR pull |
+| Configuration contract | `MCP_CRM_URL`, `MCP_KB_URL` env vars abstract hosting difference |
+| Deployment scripts | Unified `deploy_app.sh` with hosting-mode routing |
+| CI/CD hosting update | `HOSTING_MODE` variable, defaults to `appService` |
+| Cost comparison | ACA Consumption cheaper for intermittent; App Service simpler |
+| Security parity | Identical posture via managed identity, TLS, HTTPS, Key Vault |
+
+---
+
+## Hosting-Mode Research (Additive)
+
+> The following sections (11–20) document technology decisions for the configurable hosting feature. All decisions in sections 1–10 above remain valid and unchanged.
+
+---
+
+## 11. Azure Container Apps (ACA) Suitability for MCP Servers
+
+### Decision: ACA Consumption plan is suitable for MCP server hosting
+
+**Rationale**: ACA provides a managed container runtime on top of Kubernetes without requiring cluster management. The MCP servers are stateless HTTP services (SSE transport) — a perfect fit for ACA's HTTP-triggered scaling. The Consumption workload profile offers pay-per-use billing ideal for dev/test and low-traffic demo scenarios, while the Dedicated workload profile supports production-grade SLAs.
+
+**Key ACA capabilities verified**:
+
+| Capability | Supported | Notes |
+|-----------|-----------|-------|
+| System-assigned managed identity | ✅ | Equivalent to App Service managed identity |
+| Key Vault secret references | ✅ | Via `secretRef` in container app secrets |
+| Custom domain + TLS | ✅ | Managed certificates or bring-your-own |
+| HTTPS-only ingress | ✅ | Configurable at the ACA Environment level |
+| Application Insights integration | ✅ | Via `APPLICATIONINSIGHTS_CONNECTION_STRING` env var |
+| Log Analytics integration | ✅ | ACA Environment requires a Log Analytics workspace ID |
+| Health probes | ✅ | Liveness, readiness, startup probes supported |
+| Min TLS 1.2 | ✅ | Default for ACA ingress |
+| Container image from ACR | ✅ | ACR pull via managed identity (admin-key-free) |
+
+**Alternatives Considered**:
+- **Azure Kubernetes Service (AKS)**: Full Kubernetes control plane. Overkill for 2 stateless MCP servers; operational overhead not justified at this scale.
+- **Azure Functions (Container)**: Functions require trigger-based model; MCP servers are long-running HTTP processes with SSE streaming — poor fit.
+- **Azure Container Instances (ACI)**: No built-in ingress, no scaling, no managed identity for ACR pull. Too bare-metal.
+
+---
+
+## 12. Bicep Design: `hostingMode` Parameter Strategy
+
+### Decision: Single enum parameter `hostingMode` with values `'none'`, `'appService'`, `'aca'`
+
+**Rationale**: A single discriminated parameter is the cleanest Bicep pattern. `main.bicep` uses conditional deployment (`if (hostingMode == 'appService')` / `if (hostingMode == 'aca')`) to activate the correct hosting module. The `'none'` value preserves dev-environment behavior (no hosting deployed — notebooks use stdio transport).
+
+**Parameter definition**:
+```bicep
+@description('Hosting mode for MCP servers: none (notebooks only), appService, or aca')
+@allowed(['none', 'appService', 'aca'])
+param hostingMode string = 'none'
+```
+
+**Why not two boolean flags** (`deployAppService` + `deployAca`):
+- Two booleans allow an invalid state (both `true`), requiring validation logic.
+- A single enum is self-documenting and prevents the exclusive-choice error.
+- The existing `deployAppService` boolean is replaced by `hostingMode == 'appService'` — backward-compatible since `deployAppService = true` maps exactly to `hostingMode = 'appService'` and `deployAppService = false` maps to `hostingMode = 'none'`.
+
+**Migration from current `deployAppService` boolean**:
+
+| Old parameter | Old value | New parameter | New value |
+|---------------|-----------|---------------|----------|
+| `deployAppService` | `false` | `hostingMode` | `'none'` |
+| `deployAppService` | `true` | `hostingMode` | `'appService'` |
+| _(new)_ | _(new)_ | `hostingMode` | `'aca'` |
+
+---
+
+## 13. Azure Container Registry (ACR) Requirements
+
+### Decision: ACR Basic SKU, deployed only when `hostingMode == 'aca'`
+
+**Rationale**: ACR is required to store Docker images when using ACA. Basic SKU provides 10 GiB storage — more than sufficient for 2 small Python-based container images (~150 MB each). ACR is not needed when using App Service (zip deploy from source).
+
+**ACR configuration**:
+- SKU: `Basic` (dev/test), `Standard` (prod — for geo-replication readiness)
+- Admin user: **disabled** (use managed identity for ACA pull)
+- ACA ↔ ACR auth: ACA's system-assigned managed identity gets `AcrPull` role on the ACR resource
+- Image naming: `<acr-name>.azurecr.io/sfai-crm:<git-sha>`, `<acr-name>.azurecr.io/sfai-knowledge:<git-sha>`
+
+**Alternatives Considered**:
+- **Docker Hub**: Public registry. Not acceptable for enterprise images containing internal code.
+- **GitHub Container Registry (ghcr.io)**: Viable but adds cross-vendor authentication complexity. ACR + ACA managed identity is zero-friction.
+
+---
+
+## 14. Dockerfile Strategy
+
+### Decision: Single multi-stage Dockerfile with named targets per server
+
+**Rationale**: Both MCP servers share the same base dependencies (`requirements.txt`). A single `Dockerfile` with named build stages (`crm-server`, `knowledge-server`) allows building either server from the same definition, reducing maintenance burden.
+
+**Dockerfile pattern**:
+```dockerfile
+FROM python:3.11-slim AS base
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY shared/ shared/
+COPY config/ config/
+
+FROM base AS crm-server
+COPY mcp_servers/salesforce_crm/ mcp_servers/salesforce_crm/
+EXPOSE 8000
+CMD ["python", "-m", "mcp_servers.salesforce_crm.server"]
+
+FROM base AS knowledge-server
+COPY mcp_servers/salesforce_knowledge/ mcp_servers/salesforce_knowledge/
+EXPOSE 8000
+CMD ["python", "-m", "mcp_servers.salesforce_knowledge.server"]
+```
+
+Build commands:
+```bash
+docker build --target crm-server -t sfai-crm:latest .
+docker build --target knowledge-server -t sfai-knowledge:latest .
+```
+
+**Alternatives Considered**:
+- **Two separate Dockerfiles**: More duplication (shared base, requirements). Rejected.
+- **Single image with entrypoint arg**: Larger image size (includes both servers). Multi-target approach produces smaller, focused images.
+
+---
+
+## 15. ACA Environment and Log Analytics Integration
+
+### Decision: Reuse existing Log Analytics workspace from `app-insights.bicep`
+
+**Rationale**: The `app-insights.bicep` module already provisions a Log Analytics workspace as the backing store for Application Insights. ACA Environment requires a Log Analytics workspace for container logs. Reusing the same workspace consolidates all observability into a single pane — agent telemetry, App Insights, and container logs all queryable from one place.
+
+**Implementation**:
+- `app-insights.bicep` already outputs `logAnalyticsWorkspaceId`
+- `container-apps.bicep` accepts this as an input parameter
+- ACA Environment configured with `appLogsConfiguration.logAnalyticsConfiguration`
+- When `deployAppInsights = false` AND `hostingMode == 'aca'` (unlikely but possible in dev), the ACA module must provision a minimal standalone Log Analytics workspace
+
+**Alternatives Considered**:
+- **Separate Log Analytics workspace for ACA**: Creates data silos. Rejected — unified observability is a constitution requirement (Principle V).
+- **Dapr for telemetry**: Adds complexity without benefit for 2 simple HTTP services.
+
+---
+
+## 16. Configuration Contract: Hosting-Agnostic Environment Variables
+
+### Decision: Standardize on `MCP_CRM_URL` and `MCP_KB_URL` as the service discovery mechanism
+
+**Rationale**: Notebooks and clients should not need to know whether the backend runs on App Service or ACA. The endpoint URLs are the abstraction boundary. Both hosting options produce HTTPS endpoints; the only difference is the domain suffix.
+
+**Environment variable contract**:
+
+| Variable | App Service value | ACA value | Notebook (stdio) |
+|----------|------------------|-----------|-------------------|
+| `MCP_TRANSPORT` | `sse` | `sse` | `stdio` |
+| `MCP_CRM_URL` | `https://app-sfai-prod-crm.azurewebsites.net` | `https://sfai-crm.<region>.azurecontainerapps.io` | _(not set)_ |
+| `MCP_KB_URL` | `https://app-sfai-prod-knowledge.azurewebsites.net` | `https://sfai-knowledge.<region>.azurecontainerapps.io` | _(not set)_ |
+
+The existing `McpConfig` dataclass in `shared/config.py` currently has `transport` and `sse_url` fields. The update renames `sse_url` to `crm_url` and adds `kb_url` for independent per-server endpoint resolution.
+
+**Alternatives Considered**:
+- **Service discovery via Azure DNS / Private DNS zones**: Over-engineered for 2 services.
+- **Single `MCP_SSE_URL` for all servers**: Doesn't support independently deployed servers. Rejected.
+
+---
+
+## 17. Deployment Script Strategy
+
+### Decision: Unified `deploy_app.sh` script with hosting-mode routing
+
+**Rationale**: A single deployment script accepts the hosting mode as a parameter and routes to the appropriate deployment path. This keeps the CI/CD pipeline simple — one script call with different parameters.
+
+**Script interface**:
+```bash
+./scripts/deploy_app.sh <environment> [hosting-mode]
+# hosting-mode auto-detected from .env.azure HOSTING_MODE or defaults to 'appService'
+
+# Examples:
+./scripts/deploy_app.sh dev           # No-op (hostingMode=none in dev)
+./scripts/deploy_app.sh test appService  # Zip deploy to App Service
+./scripts/deploy_app.sh prod aca      # Docker build + push to ACR + ACA update
+```
+
+**App Service deployment path** (existing logic, extracted to function):
+1. `az webapp deploy --src-path <zip> --name <app-name> --resource-group <rg>`
+
+**ACA deployment path** (new):
+1. `docker build --target crm-server -t <acr>.azurecr.io/sfai-crm:$(git rev-parse --short HEAD) .`
+2. `az acr login --name <acr>`
+3. `docker push <acr>.azurecr.io/sfai-crm:<tag>`
+4. `az containerapp update --name <app-name> --image <acr>.azurecr.io/sfai-crm:<tag> --resource-group <rg>`
+5. Repeat for knowledge server.
+
+**Alternatives Considered**:
+- **Separate scripts per hosting mode**: More files, potential for drift. Single script with branching is DRYer.
+- **`az containerapp up`**: High-level command that auto-creates resources. Too opinionated — conflicts with our IaC-provisioned infrastructure.
+
+---
+
+## 18. CI/CD Pipeline Updates
+
+### Decision: Add `HOSTING_MODE` pipeline variable, default to `appService`
+
+**Rationale**: GitHub Actions workflows accept `HOSTING_MODE` as an input for `workflow_dispatch` and derive it from `.bicepparam` for push-triggered deployments. The deployment job calls `deploy_app.sh` with the resolved hosting mode.
+
+**Pipeline changes**:
+- `deploy-infra.yml`: No change needed — Bicep deployments already handle the `hostingMode` parameter via `.bicepparam`.
+- `deploy-app.yml` (new or updated): Adds a `hosting-mode` input with options `appService` / `aca` and routes to the correct deploy step.
+- CI test matrix: Docker build validation (no push) for ACA path; zip package validation for App Service path.
+
+**Default behavior**: If `HOSTING_MODE` is not specified, defaults to `appService` to preserve backward compatibility.
+
+---
+
+## 19. ACA vs App Service Cost Comparison
+
+### Decision: Document cost trade-offs; recommend Consumption for dev/test, choice for prod
+
+**Findings**:
+
+| Scenario | App Service (B1) | App Service (S1) | ACA (Consumption) | ACA (Dedicated D4) |
+|----------|------------------|-------------------|--------------------|---------------------|
+| Monthly cost (idle) | ~$13/mo | ~$55/mo | ~$0/mo | ~$150/mo |
+| Monthly cost (light, <50 users) | ~$13/mo | ~$55/mo | ~$5-15/mo | ~$150/mo |
+| Scale-to-zero | ❌ | ❌ | ✅ | ❌ |
+| Auto-scale | Plan change | Rule-based | KEDA (automatic) | KEDA (automatic) |
+| SLA | 99.95% | 99.95% | 99.95% | 99.95% |
+| Docker/ACR required | ❌ | ❌ | ✅ | ✅ |
+
+**Recommendation**: ACA Consumption is cost-optimal for intermittent/demo workloads. App Service is simpler operationally (no container pipeline needed). Both are documented as valid choices in `docs/hosting-modes.md`.
+
+---
+
+## 20. Security Parity Between Hosting Modes
+
+### Decision: Both hosting modes achieve identical security posture
+
+**Security controls mapping**:
+
+| Control | App Service | ACA |
+|---------|------------|-----|
+| Managed Identity → Key Vault | System-assigned MI + RBAC | System-assigned MI + RBAC |
+| TLS 1.2+ | Built-in | Built-in |
+| HTTPS-only | `httpsOnly: true` | Ingress config |
+| Secret management | App Settings + KV refs | Secrets + KV refs |
+| Network isolation | VNet integration (optional) | ACA Environment VNet (optional) |
+| Image provenance | N/A (source deploy) | ACR (private, no admin key) |
+| Vulnerability scanning | N/A | ACR + Defender for Containers |
+| FTPS disabled | `ftpsState: 'Disabled'` | N/A (no FTP concept) |
+
+**Additional ACA security**:
+- ACR admin credentials disabled; pull via managed identity only
+- Container App revisions are immutable — rollback is a revision switch
+- ACA ingress can restrict traffic to internal VNet — useful for MCP servers reachable only from AI Foundry

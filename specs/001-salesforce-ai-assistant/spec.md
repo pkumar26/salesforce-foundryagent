@@ -330,6 +330,7 @@ As a user working across sales and service contexts, I want the AI assistant to 
 - **FR-018**: The system MUST generate next-best-action recommendations for AEs based on deal stage, activity gaps, close date proximity, and contact engagement signals.
 - **FR-019**: The system MUST support queue-level monitoring for support managers, including case counts by status, aging distribution, and SLA compliance indicators.
 - **FR-020**: The system MUST be usable entirely through the Microsoft Agent Framework with MCP as the primary integration mechanism for Salesforce and other backend data sources.
+- **FR-021**: The system MUST support configurable hosting of runtime components (MCP servers, API backends) via a `hostingMode` parameter with values `'none'` (notebooks only), `'appService'` (Azure App Service), or `'aca'` (Azure Container Apps). The hosting choice MUST be selectable per environment without code changes. Existing App Service support is preserved; ACA is additive.
 
 ### Key Entities
 
@@ -343,10 +344,10 @@ As a user working across sales and service contexts, I want the AI assistant to 
 
 ## Assumptions
 
-- The organization is on Salesforce Enterprise or Unlimited Edition with sufficient API call entitlements for the expected query volume.
+- The organization is on Salesforce Enterprise or Unlimited Edition with sufficient API call entitlements for the expected query volume. All Salesforce REST API calls target API version **v62.0** (pinned in `shared/salesforce_client.py`).
 - Microsoft Agent Framework with MCP is the approved standard for building agentic applications; no alternative frameworks will be evaluated for this project.
 - Sales and service users have active Microsoft Teams accounts and Salesforce user licenses with appropriate data access.
-- Salesforce Knowledge Base has existing, published articles of sufficient quality and coverage for RAG-based response grounding.
+- Salesforce Knowledge Base has existing, published articles of sufficient quality and coverage for RAG-based response grounding (baseline: ≥ 50 published articles covering the top 20 FAQ categories).
 - The Salesforce data model follows standard object schema (Account, Contact, Lead, Opportunity, Case, etc.) without heavy custom-object dependencies that would alter the described interactions.
 - User identity can be mapped between Microsoft Teams (Entra ID) and Salesforce user records to enforce proper data access scoping.
 

@@ -48,7 +48,7 @@ unit and contract tests on every PR.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T011 Implement `shared/config.py` with environment loader, `.env` parsing via python-dotenv, and config validation
+- [x] T011 Implement `shared/config.py` with environment loader, `.env` parsing via python-dotenv, config validation, and `McpConfig` dataclass with `transport`, `crm_url`, `kb_url`, and `hosting_mode` fields (populated from `MCP_TRANSPORT`, `MCP_CRM_URL`, `MCP_KB_URL`, `HOSTING_MODE` env vars)
 - [x] T012 [P] Implement `shared/models.py` with all Pydantic response models from data-model.md: AccountSummary, ContactSummary, OpportunitySummary, PipelineSummary, CaseSummary, KnowledgeArticle, ActivitySummary, LeadSummary, TeamMember
 - [x] T012a [P] Write unit tests `tests/unit/test_models.py` for all Pydantic response models from data-model.md
 - [x] T013 [P] Implement `shared/auth.py` with OAuth 2.0 flow helpers and token refresh logic per research.md Section 4
@@ -62,8 +62,8 @@ unit and contract tests on every PR.
 - [x] T020 [P] Create `infra/bicep/modules/openai.bicep` per contracts/bicep-modules.md OpenAI module contract (account + GPT-4o deployment)
 - [x] T021 [P] Create `infra/bicep/modules/ai-search.bicep` per contracts/bicep-modules.md AI Search module contract
 - [x] T022 Update `infra/bicep/main.bicep` to add ai-foundry, openai, and ai-search modules with dependency wiring per plan.md Module Dependency Graph
-- [x] T023 [P] Create `infra/bicep/env/test.bicepparam` with test environment values per plan.md parameterization section
-- [x] T024 [P] Create `infra/bicep/env/prod.bicepparam` with prod environment values per plan.md parameterization section
+- [x] T023 [P] Create `infra/bicep/env/test.bicepparam` with test environment values per plan.md parameterization section (includes `hostingMode` = `'appService'` or `'aca'`, `appServiceSkuName`, `acrSku` parameters)
+- [x] T024 [P] Create `infra/bicep/env/prod.bicepparam` with prod environment values per plan.md parameterization section (includes `hostingMode` = `'appService'` or `'aca'`, `appServiceSkuName`, `acrSku` parameters, premium Key Vault HSM, ZRS storage)
 - [x] T025 Create `.github/workflows/deploy-infra.yml` with OIDC auth, Bicep lint, what-if validation, and progressive deployment (dev → test → prod) per plan.md deploy-infra.yml design
 - [x] T025a [P] Design and implement Knowledge Article sync pipeline: incremental indexing from Salesforce KnowledgeArticleVersion to Azure AI Search index (scheduled or event-driven) — required for RAG-based response grounding in US3/US4
 
@@ -121,6 +121,7 @@ unit and contract tests on every PR.
 - [x] T038 [US3] Register case tools in `mcp_servers/salesforce_crm/server.py` and knowledge tools in `mcp_servers/salesforce_knowledge/server.py`
 - [x] T038a Write contract tests `tests/contract/test_knowledge_tools.py` for search_articles and get_article_by_id against mock Salesforce responses
 - [x] T039 [US3] Implement write-back confirmation protocol in `shared/salesforce_client.py` — all write operations (create_case, update_case) require explicit user confirmation before execution
+- [x] T039a [P] [US3] Implement idempotent write guards for `create_case` and `create_task` in `shared/salesforce_client.py` — use check-before-write (query by external reference or subject+account+timestamp dedup window) to prevent duplicate records on retry, per spec.md NFR-reliability
 - [x] T040 [US3] Implement `notebooks/03_service_case_triage.ipynb` with all 9 cells per plan.md Notebook 3 design (env setup → dual MCP connections → Service Agent → triage query → display results → user confirms write-back → verify update → cleanup)
 
 **Checkpoint**: User Stories 1, 2, AND 3 all work independently — Sales and Service core scenarios operational
@@ -195,6 +196,7 @@ unit and contract tests on every PR.
 - [x] T049 [P] Write `docs/salesforce-setup.md` with Connected App creation steps, OAuth scopes, IP allowlisting, and Permission Set configuration
 - [x] T050 [P] Write `docs/azure-setup.md` with manual provisioning alternative, Bicep module reference, and per-environment guidance
 - [x] T051 [P] Write `docs/extending-scenarios.md` with instructions for adding new MCP tools and notebooks
+- [x] T051a [P] Write `docs/hosting-modes.md` with App Service vs ACA comparison table, cost analysis (idle/light-load monthly costs for each SKU tier), migration guide from `deployAppService` boolean to `hostingMode` enum, security parity documentation (managed identity, TLS, HTTPS, Key Vault for both), and recommendation guidance (ACA Consumption for intermittent/demo, App Service for operational simplicity) per research.md Sections 1, 9, 10
 - [x] T052 Write root `README.md` with project overview, architecture diagram, quickstart pointer, and contributor guidelines
 - [x] T053 [P] Add Application Insights telemetry to both MCP servers (`mcp_servers/salesforce_crm/server.py` and `mcp_servers/salesforce_knowledge/server.py`) using APPLICATIONINSIGHTS_CONNECTION_STRING from `.env`
 - [x] T053a [P] Add write-back audit logging: log all AI-initiated Salesforce write-back actions (user, timestamp, operation, data written) to Application Insights custom events per FR-016
@@ -202,11 +204,18 @@ unit and contract tests on every PR.
 - [x] T053c [P] Write incident runbooks for: (1) Salesforce API rate-limit exceeded, (2) OAuth token refresh failure, (3) MCP server crash/restart, (4) Azure OpenAI service degradation — store in `docs/runbooks/`
 - [x] T054 [P] Implement `mcp_servers/salesforce_crm/tools/leads.py` with `get_leads` and `update_lead_status` per contracts/mcp-salesforce-crm.md and register in `server.py`
 - [x] T054a [P] Create Microsoft Teams bot registration (Azure Bot Service resource + Bicep module `infra/bicep/modules/bot-service.bicep`) and configure Foundry Agent channel binding per FR-012
-- [x] T054b Test end-to-end assistant experience within a Teams chat thread, validating multi-turn conversation, write-back confirmation UX, and error messages
+- [x] T054b Test end-to-end assistant experience within a Teams chat thread, validating multi-turn conversation, write-back confirmation UX, error messages, and verify typing indicator is shown for queries exceeding 3 seconds per spec.md NFR-latency
 - [x] T055 Edge-case hardening: implement rate-limit warning/exceeded handling, auth-error recovery, large-result-set bounding (top 50 with narrowing guidance), ambiguous-account disambiguation, stale-data re-validation before write-back, and user-identity/Salesforce-user-mapping failure handling (prompt user to verify identity) across all MCP tools
+- [x] T055a Add output sanitisation to system prompts (`agents/sales/system_prompt.md`, `agents/service/system_prompt.md`): suppress raw Salesforce record IDs (15/18-char), internal field API names, and system metadata from user-facing responses per spec.md data-access principles and NFR-security
 - [x] T056 [P] Create `infra/bicep/modules/app-service.bicep` per contracts/bicep-modules.md App Service module contract (optional hosted MCP/SSE)
-- [x] T057 Update `infra/bicep/main.bicep` to add conditional App Service module per plan.md design
-- [x] T058 Create `scripts/provision_azure.sh` wrapping `az deployment sub create` with env argument, what-if preview, and output capture to `.env.azure` per plan.md provision_azure.sh design
+- [x] T057 Update `infra/bicep/main.bicep`: replace `deployAppService` boolean with `@allowed(['none', 'appService', 'aca'])` `hostingMode` enum parameter, add conditional hosting modules (App Service when `hostingMode == 'appService'`, ACR + ACA when `hostingMode == 'aca'`), add `mcpCrmUrl`, `mcpKnowledgeUrl`, `acrLoginServer`, `hostingMode` outputs per plan.md main.bicep design
+- [x] T057a [P] Create `infra/bicep/modules/container-registry.bicep` per contracts/bicep-modules.md Container Registry module contract (ACR Basic/Standard SKU, admin user disabled, outputs: `acrId`, `acrName`, `acrLoginServer`) — only deployed when `hostingMode == 'aca'`
+- [x] T057b Create `infra/bicep/modules/container-apps.bicep` per contracts/bicep-modules.md Container Apps module contract (ACA Environment + 2 Container Apps for CRM & KB servers, Log Analytics integration, managed identity with `AcrPull` role on ACR, HTTPS-only ingress port 8000, liveness/readiness health probes at `/health`, Consumption workload profile, scale-to-zero with 0–3 replicas, outputs: `crmAppFqdn`, `knowledgeAppFqdn`, `crmPrincipalId`, `knowledgePrincipalId`) — only deployed when `hostingMode == 'aca'`
+- [x] T057c Create `Dockerfile` in project root with multi-stage build: `base` stage (python:3.11-slim, install requirements.txt, copy shared/ and config/), `crm-server` target (copy mcp_servers/salesforce_crm/, EXPOSE 8000, CMD python -m mcp_servers.salesforce_crm.server), `knowledge-server` target (copy mcp_servers/salesforce_knowledge/, EXPOSE 8000, CMD python -m mcp_servers.salesforce_knowledge.server) per research.md Dockerfile strategy
+- [x] T057d Create `scripts/deploy_app.sh` with unified deployment script: accept `<environment> [hosting-mode]` args, auto-detect `hostingMode` from `.env.azure` `HOSTING_MODE` variable, route to zip deploy for `appService` (`az webapp deploy`) or Docker build+push+update for `aca` (`docker build --target`, `az acr login`, `docker push`, `az containerapp update`), no-op for `hostingMode=none` per research.md deployment script strategy
+- [x] T057e Update `.bicepparam` files (`infra/bicep/env/dev.bicepparam`, `test.bicepparam`, `prod.bicepparam`): replace `deployAppService` boolean parameter with `hostingMode` enum (`'none'` for dev, `'appService'` or `'aca'` for test/prod), add `acrSku` and `containerImageTag` parameters for ACA environments per plan.md parameterization section
+- [x] T057f [P] Update CI/CD `.github/workflows/deploy-infra.yml`: add `HOSTING_MODE` workflow input with options (`appService`, `aca`), add Docker build+push job for ACA path (build both targets, push to ACR), add `deploy_app.sh` call after infra deployment per research.md CI/CD pipeline updates
+- [x] T058 Create `scripts/provision_azure.sh` wrapping `az deployment sub create` with env argument, what-if preview, and output capture to `.env.azure` per plan.md provision_azure.sh design — extract `hostingMode`, `mcpCrmUrl`, `mcpKnowledgeUrl`, `acrLoginServer` from Bicep outputs and print hosting-mode-specific next steps (e.g., "Run scripts/deploy_app.sh" for ACA)
 - [x] T059 Final review: run all 4 notebooks end-to-end against a real Salesforce org and verify all acceptance scenarios from spec.md
 - [x] T060 Security review: validate Key Vault access policies, RBAC assignments, OIDC configuration, network rules, and `@secure()` usage across all Bicep modules
 - [x] T060a [P] Create accuracy benchmarking pipeline: define golden QA set of representative queries with expected answers, run automated evaluation against agent responses, and establish prompt-revision thresholds per constitution Principle III (model drift monitoring)
@@ -233,6 +242,10 @@ unit and contract tests on every PR.
   - US6 (Phase 8): Builds on US3 case tools — depends on Phase 5 tools
   - US7 (Phase 9): Requires both Sales and Service agents — depends on Phases 3 and 5
 - **Polish (Phase 10)**: Depends on all desired user stories being complete
+  - ACA hosting tasks (T057a–T057f, T051a) are additive — existing App Service tasks (T056, T057) remain unchanged
+  - T057b (container-apps.bicep) depends on T057a (container-registry.bicep) and T007 (app-insights.bicep)
+  - T057d (deploy_app.sh) depends on T057 (main.bicep hostingMode), T057c (Dockerfile)
+  - T057e (.bicepparam migration) depends on T057 (main.bicep hostingMode)
 
 ### User Story Dependencies
 
@@ -257,7 +270,7 @@ unit and contract tests on every PR.
 - All Foundational tasks marked [P] can run in parallel (T012–T013, T015–T021, T023–T024)
 - US1 and US3 can proceed in parallel after Phase 2 (different tool files, different MCP servers)
 - Tool implementations within a story marked [P] can run in parallel (e.g., T026–T029, T036–T037)
-- All Polish [P] tasks can run in parallel (T049–T051, T053–T054, T056)
+- All Polish [P] tasks can run in parallel (T049–T051a, T053–T054, T056, T057a, T057f)
 
 ---
 
@@ -312,7 +325,7 @@ With multiple developers:
 2. Once Foundational is done:
    - Developer A: US1 (Meeting Prep) → US2 (Pipeline) → US5 (NBA)
    - Developer B: US3 (Case Triage) → US6 (Queue Monitoring)
-   - Developer C: IaC (T056–T058) + Documentation (T049–T052)
+   - Developer C: IaC (T056–T058, T057a–T057f) + Documentation (T049–T052)
 3. After A+B complete: US4 (NL Query) → US7 (Orchestrator) → Polish
 4. Stories complete and integrate independently
 
@@ -334,4 +347,6 @@ With multiple developers:
 - Stop at any checkpoint to validate story independently
 - All Bicep modules follow contracts/bicep-modules.md parameter/output contracts
 - All MCP tools follow contracts/mcp-salesforce-crm.md and mcp-salesforce-knowledge.md schemas
+- All Bicep hosting modules follow contracts/bicep-modules.md (including new container-registry.bicep and container-apps.bicep contracts)
+- ACA hosting tasks (T057a–T057f, T051a) are additive — existing App Service tasks remain unchanged; `deployAppService` boolean is migrated to `hostingMode` enum per research.md Section 2
 - Risk thresholds are configurable via `config/risk_thresholds.yaml` (not hardcoded)
