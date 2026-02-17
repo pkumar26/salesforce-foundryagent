@@ -1,9 +1,9 @@
 name: Deploy Infrastructure
 
 on:
-  push:
-    branches: [main]
-    paths: ['infra/bicep/**']
+  #push:
+    #branches: [main]
+    #paths: ['infra/bicep/**']
   workflow_dispatch:
     inputs:
       environment:
