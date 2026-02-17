@@ -1,0 +1,156 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths: ['infra/bicep/**']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+      hosting_mode:
+        description: 'Hosting mode for MCP servers'
+        required: false
+        default: 'appService'
+        type: choice
+        options:
+          - none
+          - appService
+          - aca
+
+permissions:
+  id-token: write    # OIDC for Azure login
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Bicep lint
+        run: az bicep lint --file infra/bicep/main.bicep
+
+      - name: What-if (dev)
+        run: |
+          az deployment sub what-if \
+            --location eastus2 \
+            --template-file infra/bicep/main.bicep \
+            --parameters infra/bicep/env/dev.bicepparam
+
+  deploy-dev:
+    needs: validate
+    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'dev'
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy dev
+        run: |
+          az deployment sub create \
+            --name "sfai-dev-${{ github.run_number }}" \
+            --location eastus2 \
+            --template-file infra/bicep/main.bicep \
+            --parameters infra/bicep/env/dev.bicepparam
+
+  deploy-test:
+    needs: deploy-dev
+    if: github.event.inputs.environment == 'test' || github.event.inputs.environment == 'prod'
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy test
+        run: |
+          az deployment sub create \
+            --name "sfai-test-${{ github.run_number }}" \
+            --location eastus2 \
+            --template-file infra/bicep/main.bicep \
+            --parameters infra/bicep/env/test.bicepparam
+
+  deploy-prod:
+    needs: deploy-test
+    if: github.event.inputs.environment == 'prod'
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+      # Requires manual approval via GitHub environment protection rules
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy prod
+        run: |
+          az deployment sub create \
+            --name "sfai-prod-${{ github.run_number }}" \
+            --location eastus2 \
+            --template-file infra/bicep/main.bicep \
+            --parameters infra/bicep/env/prod.bicepparam
+
+  # --- Docker build + push for ACA hosting mode ---
+  docker-build-push:
+    needs: [deploy-dev]
+    if: github.event.inputs.hosting_mode == 'aca'
+    runs-on: ubuntu-latest
+    env:
+      HOSTING_MODE: ${{ github.event.inputs.hosting_mode }}
+      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push Docker images
+        run: |
+          ACR_NAME=$(az acr list --resource-group "rg-sfai-${ENVIRONMENT}" --query "[0].name" -o tsv)
+          ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+          IMAGE_TAG="${GITHUB_SHA::7}"
+
+          az acr login --name "$ACR_NAME"
+
+          docker build --target crm-server -t "${ACR_LOGIN_SERVER}/sfai-crm:${IMAGE_TAG}" .
+          docker build --target knowledge-server -t "${ACR_LOGIN_SERVER}/sfai-knowledge:${IMAGE_TAG}" .
+
+          docker push "${ACR_LOGIN_SERVER}/sfai-crm:${IMAGE_TAG}"
+          docker push "${ACR_LOGIN_SERVER}/sfai-knowledge:${IMAGE_TAG}"
+
+      - name: Deploy app via deploy_app.sh
+        run: |
+          chmod +x scripts/deploy_app.sh
+          ./scripts/deploy_app.sh "$ENVIRONMENT" aca

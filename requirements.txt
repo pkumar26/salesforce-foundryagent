@@ -1,0 +1,20 @@
+# Azure AI
+azure-ai-projects>=1.0.0b5
+azure-identity>=1.19.0
+
+# Salesforce
+simple-salesforce>=1.12.6
+
+# MCP
+mcp[cli]>=1.1.0
+fastmcp>=2.0.0
+
+# Data models
+pydantic>=2.10.0
+
+# HTTP
+httpx>=0.28.0
+
+# Configuration
+python-dotenv>=1.0.1
+pyyaml>=6.0.2

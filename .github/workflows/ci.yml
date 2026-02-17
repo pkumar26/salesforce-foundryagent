@@ -1,0 +1,32 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Lint (ruff)
+        run: ruff check .
+      - name: Type check (mypy)
+        run: mypy shared/ mcp_servers/
+      - name: Unit tests
+        run: pytest tests/unit/ -v
+      - name: Contract tests
+        run: pytest tests/contract/ -v
+
+  bicep-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bicep build (validate syntax)
+        run: az bicep build --file infra/bicep/main.bicep --stdout > /dev/null

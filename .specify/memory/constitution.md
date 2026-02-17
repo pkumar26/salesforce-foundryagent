@@ -121,11 +121,15 @@ and MUST NOT proceed without stakeholder sign-off.
   met and steering committee approval.
 - POC scope MUST be limited to a single use case (e.g.,
   automated case triage) to validate integration feasibility.
-- MVP MUST cover all three primary use cases (case triage,
-  lead qualification, customer Q&A) at production-quality
-  for a limited user group.
-- Pilot MUST run in production with real users for a minimum
-  of 4 weeks before GA consideration.
+- MVP MUST cover at least the P1 use cases defined in the
+  feature specification at production-quality for a limited
+  user group. Lead qualification and additional use cases
+  are deferred to post-MVP phases unless explicitly scoped.
+- For production deployments, Pilot MUST run with real users
+  for a minimum of 4 weeks before GA. For demo-first
+  deployments, a structured validation phase with
+  representative scenarios MUST be completed before
+  expanding to production users.
 - Rollback procedures MUST be tested and documented before
   each phase promotion.
 
