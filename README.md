@@ -174,12 +174,11 @@ Deploys to Azure using Bicep IaC with three environments. Hosting mode is config
 | Storage | LRS | ZRS | GRS |
 | Key Vault | Standard | Standard | Standard |
 | App Insights | ❌ | ✅ | ✅ |
-| Hosting Mode | none | appService | appService |
-| App Service | ❌ | B1 | P1v3 |
-| Container Apps (ACA)* | ❌ | ❌ | ❌ |
-| Container Registry* | ❌ | ❌ | ❌ |
+| Hosting Mode | aca | aca | aca |
+| Container Apps (ACA) | ✅ | ✅ | ✅ |
+| Container Registry | Basic | Basic | Standard |
 
-> *ACA and ACR are deployed in any environment when `hostingMode` is set to `aca`. See [docs/hosting-modes.md](docs/hosting-modes.md).
+> App Service hosting is also available by setting `hostingMode` to `appService`. See [docs/hosting-modes.md](docs/hosting-modes.md).
 
 ### Docker Deployment (ACA)
 

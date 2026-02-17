@@ -18,7 +18,7 @@ on:
       hosting_mode:
         description: 'Hosting mode for MCP servers'
         required: false
-        default: 'appService'
+        default: 'aca'
         type: choice
         options:
           - none
