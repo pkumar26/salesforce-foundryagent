@@ -26,17 +26,17 @@ unit and contract tests on every PR.
 
 **Purpose**: Project initialization, skeleton repo, and dev-environment IaC
 
-- [ ] T001 Create project root structure with `pyproject.toml`, `requirements.txt`, `requirements-dev.txt`, and `.gitignore`
-- [ ] T001a [P] Document data classification for all Salesforce objects and integration data per constitution Principle II: classify each data element as Public, Internal, Confidential, or Restricted in `docs/data-classification.md`
-- [ ] T002 [P] Create `.env.example` with all required environment variables documented in plan.md
-- [ ] T003 [P] Create `config/risk_thresholds.yaml` with configurable deal-risk signal thresholds per plan.md
-- [ ] T004 [P] Create `scripts/bootstrap_env.sh` to set up venv, install deps, and copy `.env.example` to `.env`
-- [ ] T005 [P] Create `infra/bicep/modules/storage.bicep` per contracts/bicep-modules.md Storage module contract
-- [ ] T006 [P] Create `infra/bicep/modules/keyvault.bicep` per contracts/bicep-modules.md Key Vault module contract
-- [ ] T007 [P] Create `infra/bicep/modules/app-insights.bicep` per contracts/bicep-modules.md App Insights module contract
-- [ ] T008 Create `infra/bicep/main.bicep` orchestrator with foundation modules (storage, keyvault, app-insights) per plan.md main.bicep design
-- [ ] T009 Create `infra/bicep/env/dev.bicepparam` with dev environment values per plan.md parameterization section
-- [ ] T010 [P] Create `.github/workflows/ci.yml` with Python lint, type check, unit tests, and Bicep validate per plan.md CI workflow
+- [x] T001 Create project root structure with `pyproject.toml`, `requirements.txt`, `requirements-dev.txt`, and `.gitignore`
+- [x] T001a [P] Document data classification for all Salesforce objects and integration data per constitution Principle II: classify each data element as Public, Internal, Confidential, or Restricted in `docs/data-classification.md`
+- [x] T002 [P] Create `.env.example` with all required environment variables documented in plan.md
+- [x] T003 [P] Create `config/risk_thresholds.yaml` with configurable deal-risk signal thresholds per plan.md
+- [x] T004 [P] Create `scripts/bootstrap_env.sh` to set up venv, install deps, and copy `.env.example` to `.env`
+- [x] T005 [P] Create `infra/bicep/modules/storage.bicep` per contracts/bicep-modules.md Storage module contract
+- [x] T006 [P] Create `infra/bicep/modules/keyvault.bicep` per contracts/bicep-modules.md Key Vault module contract
+- [x] T007 [P] Create `infra/bicep/modules/app-insights.bicep` per contracts/bicep-modules.md App Insights module contract
+- [x] T008 Create `infra/bicep/main.bicep` orchestrator with foundation modules (storage, keyvault, app-insights) per plan.md main.bicep design
+- [x] T009 Create `infra/bicep/env/dev.bicepparam` with dev environment values per plan.md parameterization section
+- [x] T010 [P] Create `.github/workflows/ci.yml` with Python lint, type check, unit tests, and Bicep validate per plan.md CI workflow
 
 **Checkpoint**: Skeleton repo exists, dev IaC validates, CI pipeline runs
 
@@ -48,24 +48,24 @@ unit and contract tests on every PR.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T011 Implement `shared/config.py` with environment loader, `.env` parsing via python-dotenv, and config validation
-- [ ] T012 [P] Implement `shared/models.py` with all Pydantic response models from data-model.md: AccountSummary, ContactSummary, OpportunitySummary, PipelineSummary, CaseSummary, KnowledgeArticle, ActivitySummary, LeadSummary, TeamMember
-- [ ] T012a [P] Write unit tests `tests/unit/test_models.py` for all Pydantic response models from data-model.md
-- [ ] T013 [P] Implement `shared/auth.py` with OAuth 2.0 flow helpers and token refresh logic per research.md Section 4
-- [ ] T014 Implement `shared/salesforce_client.py` with simple-salesforce wrapper, per-user auth, SOQL query helper, and API rate tracking per research.md Section 5
-- [ ] T014a [P] Write unit tests `tests/unit/test_salesforce_client.py` for SF client wrapper, auth error handling, and rate tracking
-- [ ] T015 [P] Create `mcp_servers/salesforce_crm/__init__.py` and `mcp_servers/salesforce_crm/server.py` with FastMCP server skeleton (empty tool registrations)
-- [ ] T016 [P] Create `mcp_servers/salesforce_knowledge/__init__.py` and `mcp_servers/salesforce_knowledge/server.py` with FastMCP server skeleton
-- [ ] T017 [P] Author `agents/sales/system_prompt.md` with Sales Agent instructions, grounding constraints, and citation requirements
-- [ ] T018 [P] Author `agents/service/system_prompt.md` with Service Agent instructions, triage guidelines, and KB citation requirements
-- [ ] T019 [P] Create `infra/bicep/modules/ai-foundry.bicep` per contracts/bicep-modules.md AI Foundry module contract (Hub + Project)
-- [ ] T020 [P] Create `infra/bicep/modules/openai.bicep` per contracts/bicep-modules.md OpenAI module contract (account + GPT-4o deployment)
-- [ ] T021 [P] Create `infra/bicep/modules/ai-search.bicep` per contracts/bicep-modules.md AI Search module contract
-- [ ] T022 Update `infra/bicep/main.bicep` to add ai-foundry, openai, and ai-search modules with dependency wiring per plan.md Module Dependency Graph
-- [ ] T023 [P] Create `infra/bicep/env/test.bicepparam` with test environment values per plan.md parameterization section
-- [ ] T024 [P] Create `infra/bicep/env/prod.bicepparam` with prod environment values per plan.md parameterization section
-- [ ] T025 Create `.github/workflows/deploy-infra.yml` with OIDC auth, Bicep lint, what-if validation, and progressive deployment (dev → test → prod) per plan.md deploy-infra.yml design
-- [ ] T025a [P] Design and implement Knowledge Article sync pipeline: incremental indexing from Salesforce KnowledgeArticleVersion to Azure AI Search index (scheduled or event-driven) — required for RAG-based response grounding in US3/US4
+- [x] T011 Implement `shared/config.py` with environment loader, `.env` parsing via python-dotenv, and config validation
+- [x] T012 [P] Implement `shared/models.py` with all Pydantic response models from data-model.md: AccountSummary, ContactSummary, OpportunitySummary, PipelineSummary, CaseSummary, KnowledgeArticle, ActivitySummary, LeadSummary, TeamMember
+- [x] T012a [P] Write unit tests `tests/unit/test_models.py` for all Pydantic response models from data-model.md
+- [x] T013 [P] Implement `shared/auth.py` with OAuth 2.0 flow helpers and token refresh logic per research.md Section 4
+- [x] T014 Implement `shared/salesforce_client.py` with simple-salesforce wrapper, per-user auth, SOQL query helper, and API rate tracking per research.md Section 5
+- [x] T014a [P] Write unit tests `tests/unit/test_salesforce_client.py` for SF client wrapper, auth error handling, and rate tracking
+- [x] T015 [P] Create `mcp_servers/salesforce_crm/__init__.py` and `mcp_servers/salesforce_crm/server.py` with FastMCP server skeleton (empty tool registrations)
+- [x] T016 [P] Create `mcp_servers/salesforce_knowledge/__init__.py` and `mcp_servers/salesforce_knowledge/server.py` with FastMCP server skeleton
+- [x] T017 [P] Author `agents/sales/system_prompt.md` with Sales Agent instructions, grounding constraints, and citation requirements
+- [x] T018 [P] Author `agents/service/system_prompt.md` with Service Agent instructions, triage guidelines, and KB citation requirements
+- [x] T019 [P] Create `infra/bicep/modules/ai-foundry.bicep` per contracts/bicep-modules.md AI Foundry module contract (Hub + Project)
+- [x] T020 [P] Create `infra/bicep/modules/openai.bicep` per contracts/bicep-modules.md OpenAI module contract (account + GPT-4o deployment)
+- [x] T021 [P] Create `infra/bicep/modules/ai-search.bicep` per contracts/bicep-modules.md AI Search module contract
+- [x] T022 Update `infra/bicep/main.bicep` to add ai-foundry, openai, and ai-search modules with dependency wiring per plan.md Module Dependency Graph
+- [x] T023 [P] Create `infra/bicep/env/test.bicepparam` with test environment values per plan.md parameterization section
+- [x] T024 [P] Create `infra/bicep/env/prod.bicepparam` with prod environment values per plan.md parameterization section
+- [x] T025 Create `.github/workflows/deploy-infra.yml` with OIDC auth, Bicep lint, what-if validation, and progressive deployment (dev → test → prod) per plan.md deploy-infra.yml design
+- [x] T025a [P] Design and implement Knowledge Article sync pipeline: incremental indexing from Salesforce KnowledgeArticleVersion to Azure AI Search index (scheduled or event-driven) — required for RAG-based response grounding in US3/US4
 
 **Checkpoint**: Foundation ready — shared modules importable, both MCP server skeletons startable, all Bicep modules validate, CI/CD pipelines operational. User story implementation can now begin.
 
@@ -79,13 +79,13 @@ unit and contract tests on every PR.
 
 ### Implementation for User Story 1
 
-- [ ] T026 [P] [US1] Implement `mcp_servers/salesforce_crm/tools/accounts.py` with `get_account` and `search_accounts` per contracts/mcp-salesforce-crm.md
-- [ ] T027 [P] [US1] Implement `mcp_servers/salesforce_crm/tools/contacts.py` with `get_contacts_for_account` per contracts/mcp-salesforce-crm.md
-- [ ] T028 [P] [US1] Implement `mcp_servers/salesforce_crm/tools/opportunities.py` with `get_opportunities` and `get_pipeline_summary` per contracts/mcp-salesforce-crm.md
-- [ ] T029 [P] [US1] Implement `mcp_servers/salesforce_crm/tools/activities.py` with `get_recent_activities` and `create_task` per contracts/mcp-salesforce-crm.md
-- [ ] T030 [US1] Register account, contact, opportunity, and activity tools in `mcp_servers/salesforce_crm/server.py`
-- [ ] T030a Write contract tests `tests/contract/test_crm_tools.py` for all 13 CRM MCP tools against mock Salesforce responses
-- [ ] T031 [US1] Implement `notebooks/02_sales_account_briefing.ipynb` with all 8 cells per plan.md Notebook 2 design (env setup → MCP connection → Sales Agent → briefing query → follow-up → cleanup)
+- [x] T026 [P] [US1] Implement `mcp_servers/salesforce_crm/tools/accounts.py` with `get_account` and `search_accounts` per contracts/mcp-salesforce-crm.md
+- [x] T027 [P] [US1] Implement `mcp_servers/salesforce_crm/tools/contacts.py` with `get_contacts_for_account` per contracts/mcp-salesforce-crm.md
+- [x] T028 [P] [US1] Implement `mcp_servers/salesforce_crm/tools/opportunities.py` with `get_opportunities` and `get_pipeline_summary` per contracts/mcp-salesforce-crm.md
+- [x] T029 [P] [US1] Implement `mcp_servers/salesforce_crm/tools/activities.py` with `get_recent_activities` and `create_task` per contracts/mcp-salesforce-crm.md
+- [x] T030 [US1] Register account, contact, opportunity, and activity tools in `mcp_servers/salesforce_crm/server.py`
+- [x] T030a Write contract tests `tests/contract/test_crm_tools.py` for all 13 CRM MCP tools against mock Salesforce responses
+- [x] T031 [US1] Implement `notebooks/02_sales_account_briefing.ipynb` with all 8 cells per plan.md Notebook 2 design (env setup → MCP connection → Sales Agent → briefing query → follow-up → cleanup)
 
 **Checkpoint**: User Story 1 fully functional — AEs can get meeting briefings grounded in live Salesforce data via notebook
 
@@ -99,10 +99,10 @@ unit and contract tests on every PR.
 
 ### Implementation for User Story 2
 
-- [ ] T032 [P] [US2] Implement `mcp_servers/salesforce_crm/tools/users.py` with `get_team_members` per contracts/mcp-salesforce-crm.md
-- [ ] T033 [US2] Add pipeline risk-analysis logic to `mcp_servers/salesforce_crm/tools/opportunities.py` using thresholds from `config/risk_thresholds.yaml`
-- [ ] T034 [US2] Register user tools in `mcp_servers/salesforce_crm/server.py`
-- [ ] T035 [US2] Implement `notebooks/01_sales_pipeline_summary.ipynb` with all 9 cells per plan.md Notebook 1 design (env setup → MCP connection → Sales Agent → pipeline query → risk flags → AE-specific follow-up → cleanup)
+- [x] T032 [P] [US2] Implement `mcp_servers/salesforce_crm/tools/users.py` with `get_team_members` per contracts/mcp-salesforce-crm.md
+- [x] T033 [US2] Add pipeline risk-analysis logic to `mcp_servers/salesforce_crm/tools/opportunities.py` using thresholds from `config/risk_thresholds.yaml`
+- [x] T034 [US2] Register user tools in `mcp_servers/salesforce_crm/server.py`
+- [x] T035 [US2] Implement `notebooks/01_sales_pipeline_summary.ipynb` with all 9 cells per plan.md Notebook 1 design (env setup → MCP connection → Sales Agent → pipeline query → risk flags → AE-specific follow-up → cleanup)
 
 **Checkpoint**: User Stories 1 AND 2 both work independently — meeting prep and pipeline analysis functional
 
@@ -116,12 +116,12 @@ unit and contract tests on every PR.
 
 ### Implementation for User Story 3
 
-- [ ] T036 [P] [US3] Implement `mcp_servers/salesforce_crm/tools/cases.py` with `get_case`, `create_case`, and `update_case` per contracts/mcp-salesforce-crm.md
-- [ ] T037 [P] [US3] Implement `mcp_servers/salesforce_knowledge/tools/articles.py` with `search_articles` (SOSL + SOQL fallback) and `get_article_by_id` per contracts/mcp-salesforce-knowledge.md
-- [ ] T038 [US3] Register case tools in `mcp_servers/salesforce_crm/server.py` and knowledge tools in `mcp_servers/salesforce_knowledge/server.py`
-- [ ] T038a Write contract tests `tests/contract/test_knowledge_tools.py` for search_articles and get_article_by_id against mock Salesforce responses
-- [ ] T039 [US3] Implement write-back confirmation protocol in `shared/salesforce_client.py` — all write operations (create_case, update_case) require explicit user confirmation before execution
-- [ ] T040 [US3] Implement `notebooks/03_service_case_triage.ipynb` with all 9 cells per plan.md Notebook 3 design (env setup → dual MCP connections → Service Agent → triage query → display results → user confirms write-back → verify update → cleanup)
+- [x] T036 [P] [US3] Implement `mcp_servers/salesforce_crm/tools/cases.py` with `get_case`, `create_case`, and `update_case` per contracts/mcp-salesforce-crm.md
+- [x] T037 [P] [US3] Implement `mcp_servers/salesforce_knowledge/tools/articles.py` with `search_articles` (SOSL + SOQL fallback) and `get_article_by_id` per contracts/mcp-salesforce-knowledge.md
+- [x] T038 [US3] Register case tools in `mcp_servers/salesforce_crm/server.py` and knowledge tools in `mcp_servers/salesforce_knowledge/server.py`
+- [x] T038a Write contract tests `tests/contract/test_knowledge_tools.py` for search_articles and get_article_by_id against mock Salesforce responses
+- [x] T039 [US3] Implement write-back confirmation protocol in `shared/salesforce_client.py` — all write operations (create_case, update_case) require explicit user confirmation before execution
+- [x] T040 [US3] Implement `notebooks/03_service_case_triage.ipynb` with all 9 cells per plan.md Notebook 3 design (env setup → dual MCP connections → Service Agent → triage query → display results → user confirms write-back → verify update → cleanup)
 
 **Checkpoint**: User Stories 1, 2, AND 3 all work independently — Sales and Service core scenarios operational
 
@@ -135,8 +135,8 @@ unit and contract tests on every PR.
 
 ### Implementation for User Story 4
 
-- [ ] T041 [US4] Implement `notebooks/04_service_kb_assistant.ipynb` with all 8 cells per plan.md Notebook 4 design (env setup → MCP connection → Service Agent → KB query → follow-up → cleanup)
-- [ ] T042 [US4] Add disambiguation logic to MCP server responses — when queries match multiple records or are ambiguous, return distinguishing details and prompt for clarification via `search_accounts` multi-match handling
+- [x] T041 [US4] Implement `notebooks/04_service_kb_assistant.ipynb` with all 8 cells per plan.md Notebook 4 design (env setup → MCP connection → Service Agent → KB query → follow-up → cleanup)
+- [x] T042 [US4] Add disambiguation logic to MCP server responses — when queries match multiple records or are ambiguous, return distinguishing details and prompt for clarification via `search_accounts` multi-match handling
 
 **Checkpoint**: User Stories 1–4 all work independently — ad-hoc CRM querying and KB search functional
 
@@ -150,8 +150,8 @@ unit and contract tests on every PR.
 
 ### Implementation for User Story 5
 
-- [ ] T043 [US5] Enhance Sales Agent system prompt in `agents/sales/system_prompt.md` with next-best-action reasoning instructions — incorporate deal stage, activity gaps, close date proximity, and contact engagement signals
-- [ ] T044 [US5] Add activity-gap and contact-engagement analysis helpers to `mcp_servers/salesforce_crm/tools/opportunities.py` for NBA support
+- [x] T043 [US5] Enhance Sales Agent system prompt in `agents/sales/system_prompt.md` with next-best-action reasoning instructions — incorporate deal stage, activity gaps, close date proximity, and contact engagement signals
+- [x] T044 [US5] Add activity-gap and contact-engagement analysis helpers to `mcp_servers/salesforce_crm/tools/opportunities.py` for NBA support
 
 **Checkpoint**: User Stories 1–5 all work — AEs can get proactive action recommendations
 
@@ -165,8 +165,8 @@ unit and contract tests on every PR.
 
 ### Implementation for User Story 6
 
-- [ ] T045 [US6] Add queue-level aggregation queries to `mcp_servers/salesforce_crm/tools/cases.py` — case counts by status/priority, aging buckets, SLA breach detection using BusinessHours
-- [ ] T046 [US6] Enhance Service Agent system prompt in `agents/service/system_prompt.md` with queue monitoring and pattern-detection instructions
+- [x] T045 [US6] Add queue-level aggregation queries to `mcp_servers/salesforce_crm/tools/cases.py` — case counts by status/priority, aging buckets, SLA breach detection using BusinessHours
+- [x] T046 [US6] Enhance Service Agent system prompt in `agents/service/system_prompt.md` with queue monitoring and pattern-detection instructions
 
 **Checkpoint**: User Stories 1–6 all work — Support Managers can monitor queues
 
@@ -180,9 +180,9 @@ unit and contract tests on every PR.
 
 ### Implementation for User Story 7
 
-- [ ] T047 [US7] Implement orchestrator agent configuration in `notebooks/05_orchestrator_multi_domain.ipynb`: create an Orchestrator Agent with both Sales Agent and Service Agent as sub-agents via MCP toolset. The Orchestrator uses `azure-ai-projects` Agent API with a combined `McpToolConnection` that includes both `salesforce-crm` and `salesforce-knowledge` MCP servers. System prompt instructs the Orchestrator to route sales-domain questions to Sales Agent tools and service-domain questions to Service Agent tools.
-- [ ] T048 [US7] Implement cross-domain context linking — ensure Orchestrator maintains context when user pivots from service to sales questions within the same thread by leveraging the Foundry Agent thread state. Validate with test: "What are the top cases today?" followed by "And what deals do those same accounts have?"
-- [ ] T048a Write integration tests `tests/integration/test_agent_e2e.py` covering multi-turn conversation and cross-domain orchestration
+- [x] T047 [US7] Implement orchestrator agent configuration in `notebooks/05_orchestrator_multi_domain.ipynb`: create an Orchestrator Agent with both Sales Agent and Service Agent as sub-agents via MCP toolset. The Orchestrator uses `azure-ai-projects` Agent API with a combined `McpToolConnection` that includes both `salesforce-crm` and `salesforce-knowledge` MCP servers. System prompt instructs the Orchestrator to route sales-domain questions to Sales Agent tools and service-domain questions to Service Agent tools.
+- [x] T048 [US7] Implement cross-domain context linking — ensure Orchestrator maintains context when user pivots from service to sales questions within the same thread by leveraging the Foundry Agent thread state. Validate with test: "What are the top cases today?" followed by "And what deals do those same accounts have?"
+- [x] T048a Write integration tests `tests/integration/test_agent_e2e.py` covering multi-turn conversation and cross-domain orchestration
 
 **Checkpoint**: All 7 user stories functional — full feature scope delivered
 
@@ -192,27 +192,27 @@ unit and contract tests on every PR.
 
 **Purpose**: Documentation, hardening, observability, security, and production readiness
 
-- [ ] T049 [P] Write `docs/salesforce-setup.md` with Connected App creation steps, OAuth scopes, IP allowlisting, and Permission Set configuration
-- [ ] T050 [P] Write `docs/azure-setup.md` with manual provisioning alternative, Bicep module reference, and per-environment guidance
-- [ ] T051 [P] Write `docs/extending-scenarios.md` with instructions for adding new MCP tools and notebooks
-- [ ] T052 Write root `README.md` with project overview, architecture diagram, quickstart pointer, and contributor guidelines
-- [ ] T053 [P] Add Application Insights telemetry to both MCP servers (`mcp_servers/salesforce_crm/server.py` and `mcp_servers/salesforce_knowledge/server.py`) using APPLICATIONINSIGHTS_CONNECTION_STRING from `.env`
-- [ ] T053a [P] Add write-back audit logging: log all AI-initiated Salesforce write-back actions (user, timestamp, operation, data written) to Application Insights custom events per FR-016
-- [ ] T053b [P] Configure Azure Monitor alert rules: API rate-limit proximity (>80%), MCP server error rate (>2%), and OAuth authentication failures per constitution Principle V
-- [ ] T053c [P] Write incident runbooks for: (1) Salesforce API rate-limit exceeded, (2) OAuth token refresh failure, (3) MCP server crash/restart, (4) Azure OpenAI service degradation — store in `docs/runbooks/`
-- [ ] T054 [P] Implement `mcp_servers/salesforce_crm/tools/leads.py` with `get_leads` and `update_lead_status` per contracts/mcp-salesforce-crm.md and register in `server.py`
-- [ ] T054a [P] Create Microsoft Teams bot registration (Azure Bot Service resource + Bicep module `infra/bicep/modules/bot-service.bicep`) and configure Foundry Agent channel binding per FR-012
-- [ ] T054b Test end-to-end assistant experience within a Teams chat thread, validating multi-turn conversation, write-back confirmation UX, and error messages
-- [ ] T055 Edge-case hardening: implement rate-limit warning/exceeded handling, auth-error recovery, large-result-set bounding (top 50 with narrowing guidance), ambiguous-account disambiguation, stale-data re-validation before write-back, and user-identity/Salesforce-user-mapping failure handling (prompt user to verify identity) across all MCP tools
-- [ ] T056 [P] Create `infra/bicep/modules/app-service.bicep` per contracts/bicep-modules.md App Service module contract (optional hosted MCP/SSE)
-- [ ] T057 Update `infra/bicep/main.bicep` to add conditional App Service module per plan.md design
-- [ ] T058 Create `scripts/provision_azure.sh` wrapping `az deployment sub create` with env argument, what-if preview, and output capture to `.env.azure` per plan.md provision_azure.sh design
-- [ ] T059 Final review: run all 4 notebooks end-to-end against a real Salesforce org and verify all acceptance scenarios from spec.md
-- [ ] T060 Security review: validate Key Vault access policies, RBAC assignments, OIDC configuration, network rules, and `@secure()` usage across all Bicep modules
-- [ ] T060a [P] Create accuracy benchmarking pipeline: define golden QA set of representative queries with expected answers, run automated evaluation against agent responses, and establish prompt-revision thresholds per constitution Principle III (model drift monitoring)
-- [ ] T060b [P] Document rollback procedures for each deployment phase: Bicep resource rollback via `az deployment` revert, MCP server version rollback, agent prompt rollback — store in `docs/runbooks/rollback.md` per constitution Principle IV
-- [ ] T060c [P] Create post-pilot user satisfaction survey template and measurement plan for SC-006 (target: 90% report "makes their job easier")
-- [ ] T060d [P] Run performance/load testing: simulate 50 concurrent users executing representative query mix (simple + complex), validate P95 latency stays within spec thresholds (≤ 5s simple, ≤ 15s complex) per SC-008
+- [x] T049 [P] Write `docs/salesforce-setup.md` with Connected App creation steps, OAuth scopes, IP allowlisting, and Permission Set configuration
+- [x] T050 [P] Write `docs/azure-setup.md` with manual provisioning alternative, Bicep module reference, and per-environment guidance
+- [x] T051 [P] Write `docs/extending-scenarios.md` with instructions for adding new MCP tools and notebooks
+- [x] T052 Write root `README.md` with project overview, architecture diagram, quickstart pointer, and contributor guidelines
+- [x] T053 [P] Add Application Insights telemetry to both MCP servers (`mcp_servers/salesforce_crm/server.py` and `mcp_servers/salesforce_knowledge/server.py`) using APPLICATIONINSIGHTS_CONNECTION_STRING from `.env`
+- [x] T053a [P] Add write-back audit logging: log all AI-initiated Salesforce write-back actions (user, timestamp, operation, data written) to Application Insights custom events per FR-016
+- [x] T053b [P] Configure Azure Monitor alert rules: API rate-limit proximity (>80%), MCP server error rate (>2%), and OAuth authentication failures per constitution Principle V
+- [x] T053c [P] Write incident runbooks for: (1) Salesforce API rate-limit exceeded, (2) OAuth token refresh failure, (3) MCP server crash/restart, (4) Azure OpenAI service degradation — store in `docs/runbooks/`
+- [x] T054 [P] Implement `mcp_servers/salesforce_crm/tools/leads.py` with `get_leads` and `update_lead_status` per contracts/mcp-salesforce-crm.md and register in `server.py`
+- [x] T054a [P] Create Microsoft Teams bot registration (Azure Bot Service resource + Bicep module `infra/bicep/modules/bot-service.bicep`) and configure Foundry Agent channel binding per FR-012
+- [x] T054b Test end-to-end assistant experience within a Teams chat thread, validating multi-turn conversation, write-back confirmation UX, and error messages
+- [x] T055 Edge-case hardening: implement rate-limit warning/exceeded handling, auth-error recovery, large-result-set bounding (top 50 with narrowing guidance), ambiguous-account disambiguation, stale-data re-validation before write-back, and user-identity/Salesforce-user-mapping failure handling (prompt user to verify identity) across all MCP tools
+- [x] T056 [P] Create `infra/bicep/modules/app-service.bicep` per contracts/bicep-modules.md App Service module contract (optional hosted MCP/SSE)
+- [x] T057 Update `infra/bicep/main.bicep` to add conditional App Service module per plan.md design
+- [x] T058 Create `scripts/provision_azure.sh` wrapping `az deployment sub create` with env argument, what-if preview, and output capture to `.env.azure` per plan.md provision_azure.sh design
+- [x] T059 Final review: run all 4 notebooks end-to-end against a real Salesforce org and verify all acceptance scenarios from spec.md
+- [x] T060 Security review: validate Key Vault access policies, RBAC assignments, OIDC configuration, network rules, and `@secure()` usage across all Bicep modules
+- [x] T060a [P] Create accuracy benchmarking pipeline: define golden QA set of representative queries with expected answers, run automated evaluation against agent responses, and establish prompt-revision thresholds per constitution Principle III (model drift monitoring)
+- [x] T060b [P] Document rollback procedures for each deployment phase: Bicep resource rollback via `az deployment` revert, MCP server version rollback, agent prompt rollback — store in `docs/runbooks/rollback.md` per constitution Principle IV
+- [x] T060c [P] Create post-pilot user satisfaction survey template and measurement plan for SC-006 (target: 90% report "makes their job easier")
+- [x] T060d [P] Run performance/load testing: simulate 50 concurrent users executing representative query mix (simple + complex), validate P95 latency stays within spec thresholds (≤ 5s simple, ≤ 15s complex) per SC-008
 
 **Checkpoint**: Production-ready — all documentation complete, observability instrumented, security reviewed, IaC covers all environments
 

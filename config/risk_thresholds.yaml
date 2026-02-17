@@ -1,0 +1,22 @@
+# Deal Risk Analysis Thresholds
+# Used by get_pipeline_summary to flag at-risk deals
+risk_thresholds:
+  # Flag deals stuck in the same stage for this many days
+  stage_stagnation_days: 30
+
+  # Flag deals with no activity for this many days
+  inactivity_days: 14
+
+  # Flag deals past their close date
+  overdue_enabled: true
+
+  # Flag deals with probability below this threshold (%) in late stages
+  low_probability_threshold: 30
+
+  # Stages considered "late" for probability check
+  late_stages:
+    - "Negotiation/Review"
+    - "Proposal/Price Quote"
+
+  # Minimum deal amount to flag (ignore small deals)
+  minimum_amount_for_risk: 10000
