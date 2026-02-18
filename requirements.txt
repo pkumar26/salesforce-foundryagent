@@ -15,6 +15,9 @@ pydantic>=2.10.0
 # HTTP
 httpx>=0.28.0
 
+# Async
+nest-asyncio>=1.6.0
+
 # Configuration
 python-dotenv>=1.0.1
 pyyaml>=6.0.2
