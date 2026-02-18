@@ -9,13 +9,15 @@ A step-by-step guide to get your Salesforce credentials configured for the **Sal
 1. [Get a Salesforce Org](#1-get-a-salesforce-org)
 2. [Find Your Instance URL (`SF_INSTANCE_URL`)](#2-find-your-instance-url)
 3. [Create a Connected App (`SF_CONSUMER_KEY` + `SF_CONSUMER_SECRET`)](#3-create-a-connected-app)
-4. [Set Permissions for the Integration User](#4-set-permissions-for-the-integration-user)
-5. [Get an Access Token (`SF_ACCESS_TOKEN`)](#5-get-an-access-token)
-6. [Configure Your `.env` File](#6-configure-your-env-file)
-7. [Verify the Connection](#7-verify-the-connection)
-8. [Token Refresh & Expiry](#8-token-refresh--expiry)
-9. [Troubleshooting](#9-troubleshooting)
-10. [Appendix: Required Object & Field Permissions](#appendix-required-object--field-permissions)
+4. [Configure Security Policies](#4-configure-security-policies)
+5. [Set Permissions for the Integration User](#5-set-permissions-for-the-integration-user)
+6. [Get an Access Token (`SF_ACCESS_TOKEN`)](#6-get-an-access-token)
+7. [Configure Your `.env` File](#7-configure-your-env-file)
+8. [Verify the Connection](#8-verify-the-connection)
+9. [Token Refresh & Expiry](#9-token-refresh--expiry)
+10. [IP Allowlisting (Production)](#10-ip-allowlisting-production)
+11. [Troubleshooting](#11-troubleshooting)
+12. [Appendix: Required Object & Field Permissions](#appendix-required-object--field-permissions)
 
 ---
 
@@ -124,7 +126,20 @@ SF_CALLBACK_URL=https://localhost:8443/callback
 
 ---
 
-## 4. Set Permissions for the Integration User
+## 4. Configure Security Policies
+
+After creating the Connected App, configure its security policies:
+
+1. Navigate to **Setup → App Manager** → find `AI Assistant Agent` → click the dropdown → **Manage**
+2. Set **IP Relaxation**:
+   - **Development**: `Relax IP restrictions`
+   - **Production**: `Enforce IP restrictions` (with an IP allowlist — see [Section 10](#10-ip-allowlisting-production))
+3. Set **Refresh Token Policy**: `Refresh token is valid until revoked`
+4. Set **Session Policies**: Configure timeout appropriate for your security requirements (e.g., 2 hours for dev, 30 minutes for prod)
+
+---
+
+## 5. Set Permissions for the Integration User
 
 The user whose token you'll use needs read access to all objects the AI Assistant queries.
 
@@ -161,7 +176,7 @@ The user whose token you'll use needs read access to all objects the AI Assistan
 
 ---
 
-## 5. Get an Access Token
+## 6. Get an Access Token
 
 The `SF_ACCESS_TOKEN` is used for local development and demo mode instead of going through the full OAuth flow.
 
@@ -237,7 +252,7 @@ SF_ACCESS_TOKEN=00DXX000000XXXXX!AQEAQ...your_full_token_here
 
 ---
 
-## 6. Configure Your `.env` File
+## 7. Configure Your `.env` File
 
 After collecting all values, your Salesforce section in `.env` should look like this:
 
@@ -266,7 +281,7 @@ SF_ACCESS_TOKEN=00DXX000000XXXXX!AQEAQ...
 
 ---
 
-## 7. Verify the Connection
+## 8. Verify the Connection
 
 ### Quick verification with Python
 
@@ -305,7 +320,7 @@ pytest tests/contract/ -v
 
 ---
 
-## 8. Token Refresh & Expiry
+## 9. Token Refresh & Expiry
 
 | Token Type | Lifetime | Refresh Strategy |
 |-----------|----------|-----------------|
@@ -331,12 +346,26 @@ Then update `SF_ACCESS_TOKEN` in your `.env` file.
 
 ---
 
-## 9. Troubleshooting
+## 10. IP Allowlisting (Production)
+
+For production deployments, restrict API access to known IP ranges:
+
+1. Navigate to **Setup → Network Access**
+2. Add trusted IP ranges for your Azure deployment:
+   - Azure AI Foundry outbound IPs
+   - MCP server hosting IPs (App Service or Container Apps)
+3. Or use **Connected App IP Restrictions** for per-app control (configured in [Section 4](#4-configure-security-policies))
+
+> **Tip**: To find your Azure outbound IPs, check the Azure Portal under your App Service → **Properties** → **Outbound IP Addresses**, or for Container Apps, check the environment's static IP.
+
+---
+
+## 11. Troubleshooting
 
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `INVALID_SESSION_ID` | Token expired or malformed | Re-run `sf org display` and update `SF_ACCESS_TOKEN` |
-| `INSUFFICIENT_ACCESS_OR_READONLY` | Missing object/field permissions | Check Permission Set assignments (Step 4) |
+| `INSUFFICIENT_ACCESS_OR_READONLY` | Missing object/field permissions | Check Permission Set assignments (Step 5) |
 | `INVALID_CLIENT_ID` | Wrong Consumer Key | Verify `SF_CONSUMER_KEY` in Connected App → View |
 | `INVALID_CLIENT_CREDENTIALS` | Wrong Consumer Secret | Re-copy `SF_CONSUMER_SECRET` (click "Reveal") |
 | `RATE_LIMIT_EXCEEDED` | Too many API calls | Wait and retry; check API usage in Setup → Company Information |
@@ -351,6 +380,7 @@ Then update `SF_ACCESS_TOKEN` in your `.env` file.
 - **Security Token in password**: For username-password OAuth, append your security token to your password (e.g., `password123TOKEN`).
 - **Sandbox URLs**: Sandbox instances use `--sandbox.sandbox.my.salesforce.com`, not the production domain.
 - **API version**: This project uses Salesforce API **v62.0**. Ensure your org supports it (Spring '25+).
+- **IP restrictions**: If you get `INVALID_IP_RANGE` errors, check your Connected App IP Relaxation setting ([Section 4](#4-configure-security-policies)) and Network Access allowlist ([Section 10](#10-ip-allowlisting-production)).
 
 ---
 

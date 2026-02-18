@@ -13,7 +13,7 @@ Get the Sales & Service AI Assistants running in under 15 minutes.
 | **Azure subscription** | With permissions to create AI Foundry, OpenAI, Key Vault, AI Search, Storage |
 | **GitHub repo access** | Push access to `main` branch (triggers dev deployment via CI/CD) |
 | **Salesforce org** | Enterprise or Unlimited Edition with API access |
-| **Salesforce admin** | Completed Connected App setup (see [salesforce-setup.md](../../docs/salesforce-setup.md)) |
+| **Salesforce admin** | Completed Connected App setup (see [salesforce-quickstart.md](../../docs/salesforce-quickstart.md)) |
 | **Git** | For cloning the repo |
 | **Docker** _(ACA only)_ | Required if deploying with Azure Container Apps hosting mode |
 
@@ -45,7 +45,7 @@ The bootstrap script will:
 ## Step 2: Configure Salesforce Connected App
 
 > **Prerequisite**: A Salesforce admin must have completed the Connected App setup.
-> See [docs/salesforce-setup.md](../../docs/salesforce-setup.md) for detailed instructions.
+> See [docs/salesforce-quickstart.md](../../docs/salesforce-quickstart.md) for detailed instructions.
 
 You need these values from your Connected App:
 
@@ -245,7 +245,7 @@ A successful notebook run will show:
 | `ModuleNotFoundError` | Run `source .venv/bin/activate` and verify `pip list` shows `azure-ai-projects` |
 | `AuthenticationError` from Azure | Run `az login` and verify correct subscription: `az account show` |
 | `SalesforceAuthenticationFailed` | Check `SF_ACCESS_TOKEN` validity; tokens expire in ~2 hours. Re-obtain via OAuth flow or `sf org display`. |
-| `INSUFFICIENT_ACCESS` from Salesforce | Verify user has API access and correct Permission Set. See [salesforce-setup.md](../../docs/salesforce-setup.md). |
+| `INSUFFICIENT_ACCESS` from Salesforce | Verify user has API access and correct Permission Set. See [salesforce-quickstart.md](../../docs/salesforce-quickstart.md). |
 | `KNOWLEDGE_DISABLED` in KB notebook | Salesforce Knowledge must be enabled by an admin with published articles. |
 | MCP server timeout | Ensure `python` is in PATH and the virtual environment is activated. |
 | Rate limit warnings | Reduce query frequency or check Salesforce API limit via Setup → Company Information → API Requests. |
