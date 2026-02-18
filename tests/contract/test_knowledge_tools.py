@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -20,7 +19,7 @@ def mock_sf_client():
     """Create a mock SalesforceClient for all tests."""
     client = MagicMock()
     with patch(
-        "mcp_servers.salesforce_knowledge.server._get_sf_client",
+        "mcp_servers.salesforce_knowledge.tools.articles._get_sf_client",
         return_value=client,
     ):
         yield client
@@ -81,7 +80,7 @@ class TestSearchArticles:
         from mcp_servers.salesforce_knowledge.tools.articles import search_articles
         from shared.salesforce_client import SalesforceClientError
 
-        mock_sf_client.search.side_effect = SalesforceClientError("SOSL not available")
+        mock_sf_client.search.side_effect = SalesforceClientError("SOSL_ERROR", "SOSL not available")
         mock_sf_client.query.return_value = [SAMPLE_ARTICLES[0]]
 
         result = search_articles(query="API key")
@@ -120,9 +119,11 @@ class TestSearchArticles:
         from mcp_servers.salesforce_knowledge.tools.articles import search_articles
         from shared.salesforce_client import SalesforceClientError
 
-        mock_sf_client.search.side_effect = SalesforceClientError(
-            "KnowledgeArticleVersion: entity type not available"
+        err = SalesforceClientError(
+            "SF_API_ERROR", "KnowledgeArticleVersion: entity type not available"
         )
+        mock_sf_client.search.side_effect = err
+        mock_sf_client.query.side_effect = err
 
         result = search_articles(query="test")
 
@@ -210,7 +211,7 @@ class TestGetArticleById:
         from shared.salesforce_client import SalesforceClientError
 
         mock_sf_client.query.side_effect = SalesforceClientError(
-            "Knowledge not enabled"
+            "SF_API_ERROR", "Knowledge not enabled"
         )
 
         result = get_article_by_id(article_id="ka0000000000001AAA")

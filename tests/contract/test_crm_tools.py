@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # --- Fixtures ---
 
 @pytest.fixture
@@ -336,10 +335,10 @@ class TestCreateTask:
 
     @patch("mcp_servers.salesforce_crm.tools.activities._get_sf_client")
     def test_create_task_requires_confirmation(self, mock_get_client, mock_sf_client):
-        from shared.salesforce_client import WriteBackConfirmationRequired
+        from shared.salesforce_client import WriteBackConfirmationError
 
         mock_get_client.return_value = mock_sf_client
-        mock_sf_client.create_record.side_effect = WriteBackConfirmationRequired(
+        mock_sf_client.create_record.side_effect = WriteBackConfirmationError(
             "create_task", {"object": "Task", "data": {"Subject": "Follow up"}}
         )
 

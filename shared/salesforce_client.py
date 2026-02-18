@@ -80,7 +80,7 @@ class SalesforceClientError(Exception):
         return result
 
 
-class WriteBackConfirmationRequired(Exception):
+class WriteBackConfirmationError(Exception):
     """Raised when a write operation needs user confirmation."""
 
     def __init__(self, operation: str, details: dict[str, Any]) -> None:
@@ -167,7 +167,7 @@ class SalesforceClient:
             for record in records:
                 record.pop("attributes", None)
                 # Recursively strip from nested objects
-                for key, value in list(record.items()):
+                for _key, value in list(record.items()):
                     if isinstance(value, dict):
                         value.pop("attributes", None)
                     elif isinstance(value, list):
@@ -257,11 +257,11 @@ class SalesforceClient:
             Dict with id, success, and created fields.
 
         Raises:
-            WriteBackConfirmationRequired: If confirmed=False for write operations.
+            WriteBackConfirmationError: If confirmed=False for write operations.
             SalesforceClientError: On API failure.
         """
         if not confirmed:
-            raise WriteBackConfirmationRequired(
+            raise WriteBackConfirmationError(
                 operation=f"create_{sobject.lower()}",
                 details={"object": sobject, "data": data},
             )
@@ -277,8 +277,13 @@ class SalesforceClient:
         except SalesforceError as e:
             error_msg = str(e)
             if "INSUFFICIENT_ACCESS" in error_msg:
-                raise SalesforceClientError("PERMISSION_DENIED", f"Insufficient permissions to create {sobject}: {error_msg}") from e
-            raise SalesforceClientError("SF_API_ERROR", f"Failed to create {sobject}: {error_msg}") from e
+                raise SalesforceClientError(
+                    "PERMISSION_DENIED",
+                    f"Insufficient permissions to create {sobject}: {error_msg}",
+                ) from e
+            raise SalesforceClientError(
+                "SF_API_ERROR", f"Failed to create {sobject}: {error_msg}"
+            ) from e
 
     def update_record(
         self,
@@ -300,11 +305,11 @@ class SalesforceClient:
             True if update succeeded.
 
         Raises:
-            WriteBackConfirmationRequired: If confirmed=False.
+            WriteBackConfirmationError: If confirmed=False.
             SalesforceClientError: On API failure.
         """
         if not confirmed:
-            raise WriteBackConfirmationRequired(
+            raise WriteBackConfirmationError(
                 operation=f"update_{sobject.lower()}",
                 details={"object": sobject, "record_id": record_id, "data": data},
             )
@@ -322,8 +327,13 @@ class SalesforceClient:
             if "NOT_FOUND" in error_msg or "ENTITY_IS_DELETED" in error_msg:
                 raise SalesforceClientError("NOT_FOUND", f"{sobject} record {record_id} not found.") from e
             if "INSUFFICIENT_ACCESS" in error_msg:
-                raise SalesforceClientError("PERMISSION_DENIED", f"Insufficient permissions to update {sobject}: {error_msg}") from e
-            raise SalesforceClientError("SF_API_ERROR", f"Failed to update {sobject}: {error_msg}") from e
+                raise SalesforceClientError(
+                    "PERMISSION_DENIED",
+                    f"Insufficient permissions to update {sobject}: {error_msg}",
+                ) from e
+            raise SalesforceClientError(
+                "SF_API_ERROR", f"Failed to update {sobject}: {error_msg}"
+            ) from e
 
     def get_record(self, sobject: str, record_id: str) -> dict[str, Any]:
         """Retrieve a single record by ID.

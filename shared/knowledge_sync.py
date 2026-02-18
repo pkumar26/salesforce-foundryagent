@@ -15,7 +15,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -323,7 +323,7 @@ async def sync_knowledge_articles(
 
     # Update state
     state.total_synced += uploaded
-    state.last_sync_timestamp = datetime.now(timezone.utc).strftime(
+    state.last_sync_timestamp = datetime.now(UTC).strftime(
         "%Y-%m-%dT%H:%M:%S.000Z"
     )
 

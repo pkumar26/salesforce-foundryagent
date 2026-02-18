@@ -83,7 +83,7 @@ def test_my_new_tool_returns_results():
 For tools that create or modify Salesforce data:
 
 ```python
-from shared.salesforce_client import WriteBackConfirmationRequired
+from shared.salesforce_client import WriteBackConfirmationError
 
 @mcp.tool()
 def update_my_record(record_id: str, new_value: str, confirmed: bool = False) -> dict[str, Any]:
@@ -92,7 +92,7 @@ def update_my_record(record_id: str, new_value: str, confirmed: bool = False) ->
         sf = _get_sf_client()
         sf.update_record("MyObject", record_id, {"Field": new_value}, confirmed=confirmed)
         return {"success": True, "message": "Updated successfully."}
-    except WriteBackConfirmationRequired:
+    except WriteBackConfirmationError:
         return {
             "success": False,
             "message": f"Please confirm: Update record {record_id}? Call again with confirmed=true."

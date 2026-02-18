@@ -97,6 +97,7 @@ Start with [`02_sales_account_briefing.ipynb`](notebooks/02_sales_account_briefi
 │   ├── extending-scenarios.md
 │   ├── hosting-modes.md        # App Service vs Container Apps comparison
 │   ├── post-pilot-survey.md
+│   ├── salesforce-quickstart.md # Salesforce credential onboarding guide
 │   ├── salesforce-setup.md
 │   └── runbooks/               # Operational runbooks
 ├── infra/bicep/                # Azure Infrastructure as Code

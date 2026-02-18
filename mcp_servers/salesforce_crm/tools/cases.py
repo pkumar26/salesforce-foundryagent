@@ -7,11 +7,12 @@ Contract: contracts/mcp-salesforce-crm.md
 from __future__ import annotations
 
 import logging
+from datetime import UTC
 from typing import Any
 
 from mcp_servers.salesforce_crm.server import _get_sf_client, mcp
 from shared.models import CaseSummary, ErrorResponse
-from shared.salesforce_client import SalesforceClientError, WriteBackConfirmationRequired
+from shared.salesforce_client import SalesforceClientError, WriteBackConfirmationError
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ def create_case(
     subject: str,
     description: str,
     priority: str = "Medium",
-    type: str | None = None,
+    case_type: str | None = None,
     account_id: str | None = None,
     contact_id: str | None = None,
     confirmed: bool = False,
@@ -113,7 +114,7 @@ def create_case(
         subject: Case subject line.
         description: Detailed case description.
         priority: Priority level: High, Medium, or Low (default Medium).
-        type: Case type/category.
+        case_type: Case type/category.
         account_id: Related account ID.
         contact_id: Related contact ID.
         confirmed: Whether the user has confirmed this write operation.
@@ -126,8 +127,8 @@ def create_case(
             "Description": description,
             "Priority": priority,
         }
-        if type:
-            case_data["Type"] = type
+        if case_type:
+            case_data["Type"] = case_type
         if account_id:
             case_data["AccountId"] = account_id
         if contact_id:
@@ -142,7 +143,7 @@ def create_case(
             "message": f"Case '{subject}' created successfully.",
         }
 
-    except WriteBackConfirmationRequired:
+    except WriteBackConfirmationError:
         return {
             "case_id": None,
             "case_number": None,
@@ -150,7 +151,7 @@ def create_case(
             "message": (
                 f"Please confirm: Create case with subject '{subject}', "
                 f"priority '{priority}'"
-                + (f", type '{type}'" if type else "")
+                + (f", type '{case_type}'" if case_type else "")
                 + "? Call again with confirmed=true to proceed."
             ),
         }
@@ -164,7 +165,7 @@ def update_case(
     case_id: str,
     priority: str | None = None,
     status: str | None = None,
-    type: str | None = None,
+    case_type: str | None = None,
     comment: str | None = None,
     confirmed: bool = False,
 ) -> dict[str, Any]:
@@ -174,7 +175,7 @@ def update_case(
         case_id: Salesforce Case ID to update.
         priority: New priority: High, Medium, or Low.
         status: New status value.
-        type: New type/category value.
+        case_type: New type/category value.
         comment: Internal comment to add to the case.
         confirmed: Whether the user has confirmed this write operation.
     """
@@ -187,8 +188,8 @@ def update_case(
     if status:
         update_data["Status"] = status
         updated_fields.append("Status")
-    if type:
-        update_data["Type"] = type
+    if case_type:
+        update_data["Type"] = case_type
         updated_fields.append("Type")
 
     if not update_data and not comment:
@@ -219,7 +220,7 @@ def update_case(
             "updated_fields": updated_fields,
         }
 
-    except WriteBackConfirmationRequired:
+    except WriteBackConfirmationError:
         changes_desc = ", ".join(
             f"{k}='{v}'" for k, v in update_data.items()
         )
@@ -267,9 +268,9 @@ def get_case_queue_summary(
         )
         records = sf.query(soql)
 
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Aggregate by status
         by_status: dict[str, int] = {}

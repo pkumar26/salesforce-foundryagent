@@ -12,7 +12,7 @@ from typing import Any
 
 from mcp_servers.salesforce_crm.server import _get_sf_client, mcp
 from shared.models import ActivitySummary
-from shared.salesforce_client import SalesforceClientError, WriteBackConfirmationRequired
+from shared.salesforce_client import SalesforceClientError, WriteBackConfirmationError
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +147,7 @@ def create_task(
             "message": f"Task '{subject}' created successfully.",
         }
 
-    except WriteBackConfirmationRequired:
+    except WriteBackConfirmationError:
         return {
             "task_id": None,
             "success": False,

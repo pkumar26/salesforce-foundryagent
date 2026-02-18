@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,7 +11,7 @@ from shared.salesforce_client import (
     ApiUsageTracker,
     SalesforceClient,
     SalesforceClientError,
-    WriteBackConfirmationRequired,
+    WriteBackConfirmationError,
 )
 
 
@@ -68,7 +67,7 @@ class TestSalesforceClientError:
 class TestSalesforceClient:
     @patch("shared.salesforce_client.Salesforce")
     def test_init_success(self, mock_sf_class: MagicMock) -> None:
-        client = SalesforceClient(
+        SalesforceClient(
             instance_url="https://test.salesforce.com",
             access_token="test_token",
         )
@@ -80,7 +79,9 @@ class TestSalesforceClient:
 
     @patch("shared.salesforce_client.Salesforce")
     def test_init_auth_error(self, mock_sf_class: MagicMock) -> None:
-        mock_sf_class.side_effect = SalesforceError("Invalid session")
+        mock_sf_class.side_effect = SalesforceError(
+            "https://test.salesforce.com", 401, "auth", b"Invalid session"
+        )
         with pytest.raises(SalesforceClientError) as exc_info:
             SalesforceClient(
                 instance_url="https://test.salesforce.com",
@@ -109,7 +110,9 @@ class TestSalesforceClient:
     @patch("shared.salesforce_client.Salesforce")
     def test_query_auth_error(self, mock_sf_class: MagicMock) -> None:
         mock_sf = MagicMock()
-        mock_sf.query.side_effect = SalesforceError("INVALID_SESSION_ID")
+        mock_sf.query.side_effect = SalesforceError(
+            "https://test.salesforce.com", 401, "query", b"INVALID_SESSION_ID"
+        )
         mock_sf_class.return_value = mock_sf
 
         client = SalesforceClient("https://test.salesforce.com", "token")
@@ -134,7 +137,7 @@ class TestSalesforceClient:
         mock_sf_class.return_value = MagicMock()
         client = SalesforceClient("https://test.salesforce.com", "token")
 
-        with pytest.raises(WriteBackConfirmationRequired):
+        with pytest.raises(WriteBackConfirmationError):
             client.create_record("Case", {"Subject": "Test"})
 
     @patch("shared.salesforce_client.Salesforce")
@@ -154,7 +157,7 @@ class TestSalesforceClient:
         mock_sf_class.return_value = MagicMock()
         client = SalesforceClient("https://test.salesforce.com", "token")
 
-        with pytest.raises(WriteBackConfirmationRequired):
+        with pytest.raises(WriteBackConfirmationError):
             client.update_record("Case", "500XXX", {"Status": "Working"})
 
     @patch("shared.salesforce_client.Salesforce")

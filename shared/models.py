@@ -5,7 +5,7 @@ All models correspond to Salesforce objects as defined in data-model.md.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+import datetime as _dt
 
 from pydantic import BaseModel, Field
 
@@ -42,11 +42,11 @@ class OpportunitySummary(BaseModel):
     name: str
     amount: float | None = None
     stage: str
-    close_date: date
+    close_date: _dt.date
     probability: float | None = None
     owner_name: str | None = None
     account_name: str | None = None
-    last_activity_date: date | None = None
+    last_activity_date: _dt.date | None = None
     risk_flags: list[str] = Field(default_factory=list, description="Risk indicators")
 
 
@@ -72,7 +72,7 @@ class CaseSummary(BaseModel):
     status: str
     priority: str
     type: str | None = None
-    created_date: datetime
+    created_date: _dt.datetime
     owner_name: str | None = None
     account_name: str | None = None
     recent_comments: list[str] = Field(default_factory=list)
@@ -85,7 +85,7 @@ class KnowledgeArticle(BaseModel):
     title: str
     summary: str | None = None
     url_name: str | None = None
-    last_published: datetime | None = None
+    last_published: _dt.datetime | None = None
     article_type: str | None = None
     body: str | None = Field(
         None, description="Full article content (only from get_article_by_id)"
@@ -98,7 +98,7 @@ class ActivitySummary(BaseModel):
     id: str
     type: str = Field(description="'Task' or 'Event'")
     subject: str
-    date: date | None = None
+    date: _dt.date | None = None
     status: str | None = None
     owner_name: str | None = None
 

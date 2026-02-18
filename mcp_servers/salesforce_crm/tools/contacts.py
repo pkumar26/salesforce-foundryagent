@@ -71,10 +71,9 @@ def get_contacts_for_account(
                 for rr in role_records:
                     cid = rr.get("ContactId", "")
                     role = rr.get("Role")
-                    if cid and role:
+                    if cid and role and cid not in roles_map:
                         # Keep first role found (primary)
-                        if cid not in roles_map:
-                            roles_map[cid] = role
+                        roles_map[cid] = role
             except SalesforceClientError:
                 # OpportunityContactRole may not be accessible; continue without roles
                 logger.debug("Unable to retrieve contact roles, continuing without them")

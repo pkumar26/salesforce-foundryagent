@@ -7,7 +7,6 @@ Mark with pytest.mark.integration to skip in CI.
 
 from __future__ import annotations
 
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,9 +25,19 @@ class TestAgentMultiTurn:
         from mcp_servers.salesforce_crm.tools.opportunities import get_opportunities
 
         mock_client = MagicMock()
-        with patch(
-            "mcp_servers.salesforce_crm.server._get_sf_client",
-            return_value=mock_client,
+        with (
+            patch(
+                "mcp_servers.salesforce_crm.tools.accounts._get_sf_client",
+                return_value=mock_client,
+            ),
+            patch(
+                "mcp_servers.salesforce_crm.tools.contacts._get_sf_client",
+                return_value=mock_client,
+            ),
+            patch(
+                "mcp_servers.salesforce_crm.tools.opportunities._get_sf_client",
+                return_value=mock_client,
+            ),
         ):
             # Turn 1: Account lookup
             mock_client.query.return_value = [
@@ -45,15 +54,14 @@ class TestAgentMultiTurn:
                     "Description": "Enterprise SaaS company",
                 }
             ]
-            result1 = get_account(name="Acme Corp")
+            result1 = get_account(account_name="Acme Corp")
             assert "account" in result1
 
             # Turn 2: Get contacts
             mock_client.query.return_value = [
                 {
                     "Id": "003ABC",
-                    "FirstName": "John",
-                    "LastName": "Doe",
+                    "Name": "John Doe",
                     "Title": "VP Engineering",
                     "Email": "john@acme.com",
                     "Phone": "555-1234",
@@ -83,11 +91,11 @@ class TestAgentMultiTurn:
     def test_service_agent_triage_flow(self):
         """Verify triage flow: get_case → search_articles → update_case."""
         from mcp_servers.salesforce_crm.tools.cases import get_case, update_case
-        from shared.salesforce_client import WriteBackConfirmationRequired
+        from shared.salesforce_client import WriteBackConfirmationError
 
         mock_client = MagicMock()
         with patch(
-            "mcp_servers.salesforce_crm.server._get_sf_client",
+            "mcp_servers.salesforce_crm.tools.cases._get_sf_client",
             return_value=mock_client,
         ):
             # Turn 1: Get case details
@@ -110,8 +118,8 @@ class TestAgentMultiTurn:
             assert result1["case"]["case_number"] == "00012345"
 
             # Turn 2: Update case — should require confirmation
-            mock_client.update_record.side_effect = WriteBackConfirmationRequired(
-                "Case", "500ABC"
+            mock_client.update_record.side_effect = WriteBackConfirmationError(
+                "update_case", {"object": "Case", "record_id": "500ABC", "data": {}}
             )
             result2 = update_case(
                 case_id="500ABC",
@@ -148,9 +156,15 @@ class TestCrossDomainOrchestration:
         from mcp_servers.salesforce_crm.tools.opportunities import get_opportunities
 
         mock_client = MagicMock()
-        with patch(
-            "mcp_servers.salesforce_crm.server._get_sf_client",
-            return_value=mock_client,
+        with (
+            patch(
+                "mcp_servers.salesforce_crm.tools.cases._get_sf_client",
+                return_value=mock_client,
+            ),
+            patch(
+                "mcp_servers.salesforce_crm.tools.opportunities._get_sf_client",
+                return_value=mock_client,
+            ),
         ):
             # Query opportunities for account
             mock_client.query.return_value = [
@@ -197,9 +211,15 @@ class TestCrossDomainOrchestration:
         from mcp_servers.salesforce_crm.tools.cases import get_case
 
         mock_client = MagicMock()
-        with patch(
-            "mcp_servers.salesforce_crm.server._get_sf_client",
-            return_value=mock_client,
+        with (
+            patch(
+                "mcp_servers.salesforce_crm.tools.cases._get_sf_client",
+                return_value=mock_client,
+            ),
+            patch(
+                "mcp_servers.salesforce_crm.tools.accounts._get_sf_client",
+                return_value=mock_client,
+            ),
         ):
             # Turn 1: Service query — get case, note the account
             mock_client.query.return_value = [
@@ -235,6 +255,6 @@ class TestCrossDomainOrchestration:
                     "Description": "Large manufacturing company",
                 }
             ]
-            account_result = get_account(name=account_name)
+            account_result = get_account(account_name=account_name)
             assert "account" in account_result
             assert account_result["account"]["name"] == "GlobalTech Inc"

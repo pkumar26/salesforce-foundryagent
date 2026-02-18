@@ -10,8 +10,8 @@ import logging
 from typing import Any
 
 from mcp_servers.salesforce_crm.server import _get_sf_client, mcp
-from shared.models import ErrorResponse, LeadSummary
-from shared.salesforce_client import SalesforceClientError, WriteBackConfirmationRequired
+from shared.models import LeadSummary
+from shared.salesforce_client import SalesforceClientError, WriteBackConfirmationError
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ def update_lead_status(
             "updated_fields": ["Status"],
         }
 
-    except WriteBackConfirmationRequired:
+    except WriteBackConfirmationError:
         return {
             "success": False,
             "message": (
