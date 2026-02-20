@@ -42,8 +42,22 @@ param minReplicas int = 0
 @maxValue(10)
 param maxReplicas int = 3
 
+@description('Use placeholder image for initial provisioning (before ACR images exist)')
+param usePlaceholderImage bool = true
+
 @description('Resource tags')
 param tags object = {}
+
+// Placeholder image for initial provisioning — replaced by deploy_app.sh
+var placeholderImage = 'mcr.microsoft.com/k8se/quickstart:latest'
+var crmImage = usePlaceholderImage ? placeholderImage : '${acrLoginServer}/sfai-crm:${containerImageTag}'
+var knowledgeImage = usePlaceholderImage ? placeholderImage : '${acrLoginServer}/sfai-knowledge:${containerImageTag}'
+var registries = usePlaceholderImage ? [] : [
+  {
+    server: acrLoginServer
+    identity: 'system'
+  }
+]
 
 // --- ACA Environment ---
 resource acaEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
@@ -85,18 +99,13 @@ resource crmApp 'Microsoft.App/containerApps@2024-03-01' = {
         transport: 'http'
         allowInsecure: false
       }
-      registries: [
-        {
-          server: acrLoginServer
-          identity: 'system'
-        }
-      ]
+      registries: registries
     }
     template: {
       containers: [
         {
           name: 'sfai-crm'
-          image: '${acrLoginServer}/sfai-crm:${containerImageTag}'
+          image: crmImage
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
@@ -175,18 +184,13 @@ resource knowledgeApp 'Microsoft.App/containerApps@2024-03-01' = {
         transport: 'http'
         allowInsecure: false
       }
-      registries: [
-        {
-          server: acrLoginServer
-          identity: 'system'
-        }
-      ]
+      registries: registries
     }
     template: {
       containers: [
         {
           name: 'sfai-knowledge'
-          image: '${acrLoginServer}/sfai-knowledge:${containerImageTag}'
+          image: knowledgeImage
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
