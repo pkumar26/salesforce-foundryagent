@@ -159,16 +159,31 @@ deploy_aca() {
     echo "  Pushing Knowledge image..."
     docker push "$KB_IMAGE"
 
-    # Step 5: Update container apps (switch from placeholder to real images with registry)
+    # Step 5: Configure ACR registry on container apps (needed when switching from placeholder)
+    echo "  Configuring ACR registry on container apps..."
+    az containerapp registry set \
+        --name "$CRM_APP" \
+        --resource-group "$RESOURCE_GROUP" \
+        --server "$ACR_LOGIN_SERVER" \
+        --identity system
+
+    az containerapp registry set \
+        --name "$KB_APP" \
+        --resource-group "$RESOURCE_GROUP" \
+        --server "$ACR_LOGIN_SERVER" \
+        --identity system
+
+    # Step 6: Update container apps with real images and correct port
     echo "  Updating CRM Container App → $CRM_APP..."
     az containerapp update \
         --name "$CRM_APP" \
         --resource-group "$RESOURCE_GROUP" \
         --image "$CRM_IMAGE" \
-        --registry-server "$ACR_LOGIN_SERVER" \
-        --registry-identity system \
-        --set-env-vars "FASTMCP_PORT=8000" \
-        --container-name sfai-crm \
+        --set-env-vars "FASTMCP_PORT=8000"
+
+    az containerapp ingress update \
+        --name "$CRM_APP" \
+        --resource-group "$RESOURCE_GROUP" \
         --target-port 8000
 
     echo "  Updating Knowledge Container App → $KB_APP..."
@@ -176,10 +191,11 @@ deploy_aca() {
         --name "$KB_APP" \
         --resource-group "$RESOURCE_GROUP" \
         --image "$KB_IMAGE" \
-        --registry-server "$ACR_LOGIN_SERVER" \
-        --registry-identity system \
-        --set-env-vars "FASTMCP_PORT=8000" \
-        --container-name sfai-knowledge \
+        --set-env-vars "FASTMCP_PORT=8000"
+
+    az containerapp ingress update \
+        --name "$KB_APP" \
+        --resource-group "$RESOURCE_GROUP" \
         --target-port 8000
 
     echo "✅ ACA deployment complete"
