@@ -56,3 +56,9 @@ output instrumentationKey string = appInsights.properties.InstrumentationKey
 
 @description('Resource ID of Log Analytics workspace')
 output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.id
+
+@description('Log Analytics workspace customer ID')
+output logAnalyticsCustomerId string = logAnalyticsWorkspace.properties.customerId
+
+@description('Log Analytics workspace shared key')
+output logAnalyticsSharedKey string = logAnalyticsWorkspace.listKeys().primarySharedKey

@@ -161,7 +161,8 @@ module containerApps 'modules/container-apps.bicep' = if (hostingMode == 'aca') 
   params: {
     location: location
     projectName: projectName
-    logAnalyticsWorkspaceId: deployAppInsights ? appInsights.outputs.logAnalyticsWorkspaceId : ''
+    logAnalyticsCustomerId: deployAppInsights ? appInsights.outputs.logAnalyticsCustomerId : ''
+    logAnalyticsSharedKey: deployAppInsights ? appInsights.outputs.logAnalyticsSharedKey : ''
     acrLoginServer: hostingMode == 'aca' ? containerRegistry.outputs.acrLoginServer : ''
     containerImageTag: containerImageTag
     appInsightsConnectionString: deployAppInsights ? appInsights.outputs.connectionString : ''

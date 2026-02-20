@@ -10,8 +10,12 @@ param location string
 @description('Project name for resource naming')
 param projectName string
 
-@description('Resource ID of the Log Analytics workspace (from app-insights.bicep)')
-param logAnalyticsWorkspaceId string
+@description('Log Analytics workspace customer ID (from app-insights.bicep)')
+param logAnalyticsCustomerId string
+
+@secure()
+@description('Log Analytics workspace shared key (from app-insights.bicep)')
+param logAnalyticsSharedKey string
 
 @description('ACR login server for image pull (from container-registry.bicep)')
 param acrLoginServer string
@@ -50,8 +54,8 @@ resource acaEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
     appLogsConfiguration: {
       destination: 'log-analytics'
       logAnalyticsConfiguration: {
-        customerId: reference(logAnalyticsWorkspaceId, '2023-09-01').customerId
-        sharedKey: listKeys(logAnalyticsWorkspaceId, '2023-09-01').primarySharedKey
+        customerId: logAnalyticsCustomerId
+        sharedKey: logAnalyticsSharedKey
       }
     }
     workloadProfiles: [
