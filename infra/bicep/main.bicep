@@ -82,7 +82,10 @@ module keyvault 'modules/keyvault.bicep' = {
   }
 }
 
-module appInsights 'modules/app-insights.bicep' = if (deployAppInsights) {
+// ACA requires Log Analytics, so always deploy App Insights when hostingMode == 'aca'
+var enableAppInsights = deployAppInsights || hostingMode == 'aca'
+
+module appInsights 'modules/app-insights.bicep' = if (enableAppInsights) {
   scope: rg
   name: 'app-insights-deployment'
   params: {
@@ -101,7 +104,7 @@ module aiFoundry 'modules/ai-foundry.bicep' = {
     projectName: projectName
     storageAccountId: storage.outputs.storageAccountId
     keyVaultId: keyvault.outputs.keyVaultId
-    appInsightsId: deployAppInsights ? appInsights.outputs.appInsightsId : ''
+    appInsightsId: enableAppInsights ? appInsights.outputs.appInsightsId : ''
     tags: tags
   }
 }
@@ -136,7 +139,7 @@ module appService 'modules/app-service.bicep' = if (hostingMode == 'appService')
     location: location
     projectName: projectName
     skuName: appServiceSkuName
-    appInsightsConnectionString: deployAppInsights ? appInsights.outputs.connectionString : ''
+    appInsightsConnectionString: enableAppInsights ? appInsights.outputs.connectionString : ''
     keyVaultUri: keyvault.outputs.vaultUri
     tags: tags
   }
@@ -161,11 +164,11 @@ module containerApps 'modules/container-apps.bicep' = if (hostingMode == 'aca') 
   params: {
     location: location
     projectName: projectName
-    logAnalyticsCustomerId: deployAppInsights ? appInsights.outputs.logAnalyticsCustomerId : ''
-    logAnalyticsSharedKey: deployAppInsights ? appInsights.outputs.logAnalyticsSharedKey : ''
+    logAnalyticsCustomerId: enableAppInsights ? appInsights.outputs.logAnalyticsCustomerId : ''
+    logAnalyticsSharedKey: enableAppInsights ? appInsights.outputs.logAnalyticsSharedKey : ''
     acrLoginServer: hostingMode == 'aca' ? containerRegistry.outputs.acrLoginServer : ''
     containerImageTag: containerImageTag
-    appInsightsConnectionString: deployAppInsights ? appInsights.outputs.connectionString : ''
+    appInsightsConnectionString: enableAppInsights ? appInsights.outputs.connectionString : ''
     keyVaultUri: keyvault.outputs.vaultUri
     tags: tags
   }
@@ -185,7 +188,7 @@ output keyVaultUri string = keyvault.outputs.vaultUri
 output storageAccountName string = storage.outputs.storageAccountName
 
 @description('App Insights connection string (empty if not deployed)')
-output appInsightsConnectionString string = deployAppInsights ? appInsights.outputs.connectionString : ''
+output appInsightsConnectionString string = enableAppInsights ? appInsights.outputs.connectionString : ''
 
 @description('The hosting mode used for this deployment')
 output hostingMode string = hostingMode
