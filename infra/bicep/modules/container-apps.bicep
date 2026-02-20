@@ -58,6 +58,30 @@ var registries = usePlaceholderImage ? [] : [
     identity: 'system'
   }
 ]
+// MCR quickstart listens on port 80; real MCP servers listen on 8000
+var containerPort = usePlaceholderImage ? 80 : 8000
+var healthProbes = usePlaceholderImage ? [] : [
+  {
+    type: 'Liveness'
+    httpGet: {
+      path: '/health'
+      port: 8000
+    }
+    periodSeconds: 30
+    failureThreshold: 3
+    initialDelaySeconds: 10
+  }
+  {
+    type: 'Readiness'
+    httpGet: {
+      path: '/health'
+      port: 8000
+    }
+    periodSeconds: 10
+    failureThreshold: 3
+    initialDelaySeconds: 5
+  }
+]
 
 // --- ACA Environment ---
 resource acaEnvironment 'Microsoft.App/managedEnvironments@2024-03-01' = {
@@ -95,7 +119,7 @@ resource crmApp 'Microsoft.App/containerApps@2024-03-01' = {
     configuration: {
       ingress: {
         external: true
-        targetPort: 8000
+        targetPort: containerPort
         transport: 'http'
         allowInsecure: false
       }
@@ -124,28 +148,7 @@ resource crmApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: keyVaultUri
             }
           ]
-          probes: [
-            {
-              type: 'Liveness'
-              httpGet: {
-                path: '/health'
-                port: 8000
-              }
-              periodSeconds: 30
-              failureThreshold: 3
-              initialDelaySeconds: 10
-            }
-            {
-              type: 'Readiness'
-              httpGet: {
-                path: '/health'
-                port: 8000
-              }
-              periodSeconds: 10
-              failureThreshold: 3
-              initialDelaySeconds: 5
-            }
-          ]
+          probes: healthProbes
         }
       ]
       scale: {
@@ -180,7 +183,7 @@ resource knowledgeApp 'Microsoft.App/containerApps@2024-03-01' = {
     configuration: {
       ingress: {
         external: true
-        targetPort: 8000
+        targetPort: containerPort
         transport: 'http'
         allowInsecure: false
       }
@@ -209,28 +212,7 @@ resource knowledgeApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: keyVaultUri
             }
           ]
-          probes: [
-            {
-              type: 'Liveness'
-              httpGet: {
-                path: '/health'
-                port: 8000
-              }
-              periodSeconds: 30
-              failureThreshold: 3
-              initialDelaySeconds: 10
-            }
-            {
-              type: 'Readiness'
-              httpGet: {
-                path: '/health'
-                port: 8000
-              }
-              periodSeconds: 10
-              failureThreshold: 3
-              initialDelaySeconds: 5
-            }
-          ]
+          probes: healthProbes
         }
       ]
       scale: {
