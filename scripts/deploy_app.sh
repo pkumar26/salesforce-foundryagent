@@ -138,9 +138,10 @@ deploy_aca() {
     echo "  Authenticating with ACR: ${ACR_LOGIN_SERVER}..."
     az acr login --name "${ACR_LOGIN_SERVER%%.*}"
 
-    # Step 2: Build CRM server image
+    # Step 2: Build CRM server image (ACA requires linux/amd64)
     echo "  Building CRM server image → ${CRM_IMAGE}..."
     docker build \
+        --platform linux/amd64 \
         --target crm-server \
         -t "$CRM_IMAGE" \
         "$REPO_ROOT"
@@ -148,6 +149,7 @@ deploy_aca() {
     # Step 3: Build Knowledge server image
     echo "  Building Knowledge server image → ${KB_IMAGE}..."
     docker build \
+        --platform linux/amd64 \
         --target knowledge-server \
         -t "$KB_IMAGE" \
         "$REPO_ROOT"
