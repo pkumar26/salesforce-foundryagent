@@ -20,6 +20,14 @@ mcp = FastMCP(
     port=int(os.environ.get("FASTMCP_PORT", "8000")),
 )
 
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request):  # noqa: ARG001
+    """Health-check endpoint for container orchestrators."""
+    from starlette.responses import JSONResponse
+
+    return JSONResponse({"status": "ok", "server": "salesforce-crm"})
+
 # Tool registration imports — must come AFTER mcp is defined
 # Each module uses the @mcp.tool() decorator to self-register
 def _register_tools() -> None:

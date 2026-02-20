@@ -21,6 +21,14 @@ mcp = FastMCP(
 )
 
 
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request):  # noqa: ARG001
+    """Health-check endpoint for container orchestrators."""
+    from starlette.responses import JSONResponse
+
+    return JSONResponse({"status": "ok", "server": "salesforce-knowledge"})
+
+
 def _get_sf_client():
     """Get a SalesforceClient instance from environment variables."""
     from shared.salesforce_client import SalesforceClient

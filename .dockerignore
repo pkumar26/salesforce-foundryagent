@@ -1,0 +1,66 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Docs & specs (not needed in container)
+docs/
+specs/
+notebooks/
+*.md
+*.ipynb
+LICENSE
+
+# Infra
+infra/
+.github/
+
+# Tests (not needed in production container)
+tests/
+requirements-dev.txt
+
+# Scripts (not needed in container)
+scripts/
+
+# Agents (prompts loaded at runtime, not in MCP container)
+agents/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+*.tar
