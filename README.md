@@ -175,24 +175,49 @@ Deploys to Azure using Bicep IaC with three environments. Hosting mode is config
 | AI Search | Free | Basic | Standard |
 | Storage | LRS | ZRS | GRS |
 | Key Vault | Standard | Standard | Standard |
-| App Insights | ❌ | ✅ | ✅ |
+| App Insights | Auto (ACA) | ✅ | ✅ |
 | Hosting Mode | aca | aca | aca |
 | Container Apps (ACA) | ✅ | ✅ | ✅ |
 | Container Registry | Basic | Basic | Standard |
 
 > App Service hosting is also available by setting `hostingMode` to `appService`. See [docs/hosting-modes.md](docs/hosting-modes.md).
 
-### Docker Deployment (ACA)
+### Azure Deployment (ACA)
 
-When using `hostingMode=aca`, MCP servers run as containerized apps on Azure Container Apps:
+When using `hostingMode=aca`, MCP servers run as containerized apps on Azure Container Apps.
+Initial provisioning uses a placeholder image; real images are deployed in a second step.
 
 ```bash
-# Build and deploy via the unified script
-./scripts/deploy_app.sh
+# 1. Provision Azure infrastructure (creates ACA with placeholder image)
+./scripts/provision_azure.sh dev
 
-# Or build manually
-docker build --target crm-server -t mcp-crm:latest .
-docker build --target knowledge-server -t mcp-knowledge:latest .
+# 2. Assign Key Vault Secrets Officer role to your user
+USER_OID=$(az ad signed-in-user show --query id -o tsv)
+az role assignment create \
+  --role "Key Vault Secrets Officer" \
+  --assignee-object-id "$USER_OID" \
+  --assignee-principal-type User \
+  --scope "$(az keyvault show --name <vault-name> --query id -o tsv)"
+
+# 3. Store Salesforce credentials in Key Vault
+az keyvault secret set --vault-name <vault-name> --name sf-client-id --value '<key>'
+az keyvault secret set --vault-name <vault-name> --name sf-client-secret --value '<secret>'
+az keyvault secret set --vault-name <vault-name> --name sf-instance-url --value '<url>'
+az keyvault secret set --vault-name <vault-name> --name sf-access-token --value '<token>'
+
+# 4. Build linux/amd64 images, push to ACR, and update Container Apps
+./scripts/deploy_app.sh dev aca
+```
+
+#### Local Docker Testing
+
+```bash
+# Build and run locally (uses native ARM64 on Apple Silicon)
+docker build --target crm-server -t sfai-crm:latest .
+docker build --target knowledge-server -t sfai-knowledge:latest .
+docker run -d -p 8000:8000 --env-file .env sfai-crm:latest
+docker run -d -p 8001:8000 --env-file .env sfai-knowledge:latest
+curl http://localhost:8000/health  # {"status":"ok"}
 ```
 
 ## Security

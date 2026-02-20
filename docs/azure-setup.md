@@ -29,8 +29,10 @@
 | Search SKU | free | basic | standard |
 | Storage Redundancy | LRS | ZRS | GRS |
 | OpenAI TPM | 10,000 | 30,000 | 80,000 |
-| App Insights | ❌ | ✅ | ✅ |
-| App Service | ❌ | ❌ | ✅ (P1v3) |
+| App Insights | Auto (ACA) | ✅ | ✅ |
+| Hosting Mode | aca | aca | aca |
+| Container Apps | ✅ | ✅ | ✅ |
+| Container Registry | Basic | Basic | Standard |
 
 ## Option 2: Manual Provisioning
 
@@ -124,13 +126,15 @@ infra/bicep/
 │   ├── test.bicepparam     # basic/ZRS/30K
 │   └── prod.bicepparam     # standard/GRS/80K
 └── modules/
-    ├── storage.bicep       # Storage Account
-    ├── keyvault.bicep       # Key Vault
-    ├── app-insights.bicep   # App Insights + Log Analytics
-    ├── ai-foundry.bicep     # Hub + Project
-    ├── openai.bicep         # OpenAI + GPT-4o deployment
-    ├── ai-search.bicep      # AI Search service
-    └── app-service.bicep    # App Service (prod only)
+    ├── storage.bicep        # Storage Account
+    ├── keyvault.bicep        # Key Vault (RBAC-enabled)
+    ├── app-insights.bicep    # App Insights + Log Analytics
+    ├── ai-foundry.bicep      # Hub + Project
+    ├── openai.bicep          # OpenAI + GPT-4o deployment
+    ├── ai-search.bicep       # AI Search service
+    ├── app-service.bicep     # App Service (optional, hostingMode=appService)
+    ├── container-registry.bicep # ACR for Docker images (hostingMode=aca)
+    └── container-apps.bicep  # ACA Environment + Container Apps (hostingMode=aca)
 ```
 
 ### Key Outputs
@@ -144,10 +148,51 @@ az deployment sub show \
   --query "properties.outputs" -o json
 ```
 
-Key outputs used in `.env`:
-- `projectEndpoint` → `AZURE_AI_PROJECT_ENDPOINT`
-- `openaiEndpoint` → `AZURE_OPENAI_ENDPOINT`
-- `searchEndpoint` → `AZURE_AI_SEARCH_ENDPOINT`
+Key outputs used in `.env` (auto-written to `.env.azure` by `provision_azure.sh`):
+- `aiFoundryProjectEndpoint` → `AZURE_AI_PROJECT_ENDPOINT`
+- `openaiDeploymentName` → `AZURE_AI_MODEL_NAME`
+- `keyVaultUri` → `AZURE_KEY_VAULT_URI`
+- `storageAccountName` → `AZURE_STORAGE_ACCOUNT_NAME`
+- `appInsightsConnectionString` → `APPLICATIONINSIGHTS_CONNECTION_STRING`
+- `hostingMode` → `HOSTING_MODE`
+- `mcpCrmUrl` → `MCP_CRM_URL`
+- `mcpKnowledgeUrl` → `MCP_KB_URL`
+- `acrLoginServer` → `ACR_LOGIN_SERVER`
+
+### Post-Provisioning: Key Vault Secrets
+
+Key Vault uses RBAC authorization. Before storing secrets, assign yourself the **Key Vault Secrets Officer** role:
+
+```bash
+USER_OID=$(az ad signed-in-user show --query id -o tsv)
+KV_ID=$(az keyvault show --name <vault-name> --query id -o tsv)
+az role assignment create \
+  --role "Key Vault Secrets Officer" \
+  --assignee-object-id "$USER_OID" \
+  --assignee-principal-type User \
+  --scope "$KV_ID"
+```
+
+Then store Salesforce credentials:
+
+```bash
+az keyvault secret set --vault-name <vault-name> --name sf-client-id --value '<consumer-key>'
+az keyvault secret set --vault-name <vault-name> --name sf-client-secret --value '<consumer-secret>'
+az keyvault secret set --vault-name <vault-name> --name sf-instance-url --value '<instance-url>'
+az keyvault secret set --vault-name <vault-name> --name sf-access-token --value '<access-token>'
+```
+
+> **Note:** Use single quotes for values containing `!` or other shell special characters.
+
+### Deploying Container Images (ACA)
+
+After provisioning, deploy real MCP server images:
+
+```bash
+./scripts/deploy_app.sh dev aca
+```
+
+This builds `linux/amd64` images, pushes to ACR, configures the registry, and updates the container apps with proper port (8000) and host binding (`0.0.0.0`).
 
 ## CI/CD (GitHub Actions)
 
