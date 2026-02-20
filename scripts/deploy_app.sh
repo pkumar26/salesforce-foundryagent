@@ -54,7 +54,10 @@ echo "  Hosting Mode:  $HOSTING_MODE"
 echo "=============================================="
 echo ""
 
-# --- Derive resource names ---
+# --- Derive resource names (read from .env.azure or env var) ---
+if [[ -z "${AZURE_PROJECT_NAME:-}" && -f "$ENV_AZURE_FILE" ]]; then
+    AZURE_PROJECT_NAME=$(grep -E '^AZURE_PROJECT_NAME=' "$ENV_AZURE_FILE" | cut -d'=' -f2 | tr -d '[:space:]' || echo "")
+fi
 PROJECT_NAME="${AZURE_PROJECT_NAME:-sfai-${ENVIRONMENT}}"
 RESOURCE_GROUP="rg-${PROJECT_NAME}"
 
@@ -156,18 +159,28 @@ deploy_aca() {
     echo "  Pushing Knowledge image..."
     docker push "$KB_IMAGE"
 
-    # Step 5: Update container apps
+    # Step 5: Update container apps (switch from placeholder to real images with registry)
     echo "  Updating CRM Container App → $CRM_APP..."
     az containerapp update \
         --name "$CRM_APP" \
         --resource-group "$RESOURCE_GROUP" \
-        --image "$CRM_IMAGE"
+        --image "$CRM_IMAGE" \
+        --registry-server "$ACR_LOGIN_SERVER" \
+        --registry-identity system \
+        --set-env-vars "FASTMCP_PORT=8000" \
+        --container-name sfai-crm \
+        --target-port 8000
 
     echo "  Updating Knowledge Container App → $KB_APP..."
     az containerapp update \
         --name "$KB_APP" \
         --resource-group "$RESOURCE_GROUP" \
-        --image "$KB_IMAGE"
+        --image "$KB_IMAGE" \
+        --registry-server "$ACR_LOGIN_SERVER" \
+        --registry-identity system \
+        --set-env-vars "FASTMCP_PORT=8000" \
+        --container-name sfai-knowledge \
+        --target-port 8000
 
     echo "✅ ACA deployment complete"
     echo "  CRM:       https://$(az containerapp show --name "$CRM_APP" --resource-group "$RESOURCE_GROUP" --query 'properties.configuration.ingress.fqdn' -o tsv)"
