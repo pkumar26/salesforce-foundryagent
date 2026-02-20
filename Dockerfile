@@ -21,6 +21,9 @@ COPY config/ config/
 # Create non-root user
 RUN adduser --disabled-password --gecos '' appuser
 
+# Default to binding on all interfaces in containers
+ENV FASTMCP_HOST=0.0.0.0
+
 # --- CRM MCP Server ---
 FROM base AS crm-server
 

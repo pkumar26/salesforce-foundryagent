@@ -181,7 +181,7 @@ deploy_aca() {
         --name "$CRM_APP" \
         --resource-group "$RESOURCE_GROUP" \
         --image "$CRM_IMAGE" \
-        --set-env-vars "FASTMCP_PORT=8000"
+        --set-env-vars "FASTMCP_PORT=8000" "FASTMCP_HOST=0.0.0.0"
 
     az containerapp ingress update \
         --name "$CRM_APP" \
@@ -193,7 +193,7 @@ deploy_aca() {
         --name "$KB_APP" \
         --resource-group "$RESOURCE_GROUP" \
         --image "$KB_IMAGE" \
-        --set-env-vars "FASTMCP_PORT=8000"
+        --set-env-vars "FASTMCP_PORT=8000" "FASTMCP_HOST=0.0.0.0"
 
     az containerapp ingress update \
         --name "$KB_APP" \
