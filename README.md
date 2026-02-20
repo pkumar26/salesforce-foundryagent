@@ -21,7 +21,7 @@ An AI-powered assistant for Salesforce CRM built on **Azure AI Foundry Agent Fra
     ┌─────────▼──────────┐  ┌────────▼───────────┐
     │  salesforce-crm    │  │salesforce-knowledge │
     │  MCP Server        │  │  MCP Server         │
-    │  (13 tools)        │  │  (2 tools)          │
+    │  (15 tools)        │  │  (2 tools)          │
     └─────────┬──────────┘  └────────┬───────────┘
               │                       │
               └───────────┬───────────┘
@@ -115,7 +115,7 @@ Start with [`02_sales_account_briefing.ipynb`](notebooks/02_sales_account_briefi
 │       ├── openai.bicep
 │       └── storage.bicep
 ├── mcp_servers/                # MCP Server implementations
-│   ├── salesforce_crm/         # 13 CRM tools
+│   ├── salesforce_crm/         # 15 CRM tools
 │   └── salesforce_knowledge/   # 2 Knowledge tools
 ├── notebooks/                  # Jupyter notebooks (one per user story)
 ├── shared/                     # Shared utilities
@@ -137,7 +137,7 @@ Start with [`02_sales_account_briefing.ipynb`](notebooks/02_sales_account_briefi
 
 ## MCP Tools
 
-### salesforce-crm (13 tools)
+### salesforce-crm (15 tools)
 
 | Tool | Object | Description |
 |------|--------|-------------|
@@ -153,6 +153,8 @@ Start with [`02_sales_account_briefing.ipynb`](notebooks/02_sales_account_briefi
 | `create_case` | Case | Create with write-back confirmation |
 | `update_case` | Case | Update with write-back confirmation |
 | `get_case_queue_summary` | Case | Queue status aggregation |
+| `get_leads` | Lead | List leads with filters |
+| `update_lead_status` | Lead | Update with write-back confirmation |
 | `get_team_members` | User | Team member lookup |
 
 ### salesforce-knowledge (2 tools)

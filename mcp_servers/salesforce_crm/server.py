@@ -1,4 +1,4 @@
-"""Salesforce CRM MCP Server — FastMCP server with 13 CRM data tools.
+"""Salesforce CRM MCP Server — FastMCP server with 15 CRM data tools.
 
 Entry point for the salesforce-crm MCP server.
 Transport: stdio (notebooks) / SSE (hosted deployment).
