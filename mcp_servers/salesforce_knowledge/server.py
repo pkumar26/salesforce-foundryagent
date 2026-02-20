@@ -14,7 +14,11 @@ from mcp.server.fastmcp import FastMCP
 logger = logging.getLogger(__name__)
 
 # Create the FastMCP server instance
-mcp = FastMCP("salesforce-knowledge")
+mcp = FastMCP(
+    "salesforce-knowledge",
+    host=os.environ.get("FASTMCP_HOST", "127.0.0.1"),
+    port=int(os.environ.get("FASTMCP_PORT", "8000")),
+)
 
 
 def _get_sf_client():
@@ -39,6 +43,13 @@ def _register_tools() -> None:
 
 
 if __name__ == "__main__":
+    import sys as _sys
+
+    # Prevent double-import: when tool modules do
+    # ``from mcp_servers.salesforce_knowledge.server import mcp`` they must get
+    # *this* module's ``mcp`` instance, not a second copy.
+    _sys.modules.setdefault("mcp_servers.salesforce_knowledge.server", _sys.modules[__name__])
+
     from shared.telemetry import setup_telemetry
 
     setup_telemetry("salesforce-knowledge")

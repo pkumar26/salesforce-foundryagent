@@ -14,7 +14,11 @@ from mcp.server.fastmcp import FastMCP
 logger = logging.getLogger(__name__)
 
 # Create the FastMCP server instance
-mcp = FastMCP("salesforce-crm")
+mcp = FastMCP(
+    "salesforce-crm",
+    host=os.environ.get("FASTMCP_HOST", "127.0.0.1"),
+    port=int(os.environ.get("FASTMCP_PORT", "8000")),
+)
 
 # Tool registration imports — must come AFTER mcp is defined
 # Each module uses the @mcp.tool() decorator to self-register
@@ -49,6 +53,13 @@ def _get_sf_client():
 
 
 if __name__ == "__main__":
+    import sys as _sys
+
+    # Prevent double-import: when tool modules do
+    # ``from mcp_servers.salesforce_crm.server import mcp`` they must get
+    # *this* module's ``mcp`` instance, not a second copy.
+    _sys.modules.setdefault("mcp_servers.salesforce_crm.server", _sys.modules[__name__])
+
     from shared.telemetry import setup_telemetry
 
     setup_telemetry("salesforce-crm")

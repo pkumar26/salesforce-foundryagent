@@ -111,14 +111,16 @@ def get_opportunities(
     include_closed: bool = False,
     limit: int = 25,
 ) -> dict[str, Any]:
-    """List open opportunities with filters for owner, stage, and date range.
+    """List open opportunities. Call with NO arguments to get all open deals.
+
+    All parameters are optional filters.
 
     Args:
-        owner_id: Filter by opportunity owner User ID.
-        account_id: Filter by account ID.
-        stage: Filter by stage name.
-        close_date_from: Close date range start (YYYY-MM-DD).
-        close_date_to: Close date range end (YYYY-MM-DD).
+        owner_id: (Optional) Filter by opportunity owner User ID.
+        account_id: (Optional) Filter by account ID.
+        stage: (Optional) Filter by stage name.
+        close_date_from: (Optional) Close date range start (YYYY-MM-DD).
+        close_date_to: (Optional) Close date range end (YYYY-MM-DD).
         include_closed: Include closed deals (default False).
         limit: Maximum results to return (1-50, default 25).
     """
@@ -169,11 +171,14 @@ def get_pipeline_summary(
     manager_id: str | None = None,
     owner_id: str | None = None,
 ) -> dict[str, Any]:
-    """Aggregate pipeline by owner and stage with risk flags applied per risk_thresholds.yaml.
+    """Aggregate pipeline by owner and stage with risk flags applied.
+
+    Call with NO arguments to get a full pipeline summary across all reps.
+    Both parameters are optional.
 
     Args:
-        manager_id: Manager User ID — summarize pipeline for all direct reports.
-        owner_id: Specific owner User ID — summarize one rep's pipeline.
+        manager_id: (Optional) Manager User ID to scope to that manager's direct reports only.
+        owner_id: (Optional) Specific owner User ID to scope to one rep's pipeline only.
     """
     try:
         sf = _get_sf_client()
